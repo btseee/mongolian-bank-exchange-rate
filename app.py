@@ -1,8 +1,7 @@
 from fastapi import FastAPI, Request
-from rates.rates import RatesSwitch
+from rates.rates import BankSwitch
 
 app = FastAPI()
-rated = RatesSwitch()
 
 @app.get("/")
 async def root():
@@ -14,7 +13,7 @@ async def rates(request: Request):
         request_json = await request.json()
         
         if(request_json['bank']):
-            return rated.bank(request_json['bank'])
+            return BankSwitch(request_json)
         else: 
             return {"message": "Request not valid"}
     else:

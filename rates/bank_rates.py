@@ -1,30 +1,53 @@
+from locale import currency
 from dotenv import load_dotenv
 import os, requests,asyncio
 from bs4 import BeautifulSoup
+import pandas as pd
+import urllib.parse
 
 load_dotenv()
 
 def Khanbank():
     URL = os.environ.get("KHANBANK_URI")
     return URL
-def Tdbm():
+
+def Tdbm(request):
     URL = os.environ.get("TDBM_URI")
-    page = requests.get(URL)
+    date = urllib.parse.quote_plus(str(request['date']))
+    page = requests.get(URL,params={"dt":request['date']})
     soup = BeautifulSoup(page.text.encode("utf-8"), "html.parser")
-    div = soup.find("div", id = "exchange-table-result")
+    div = soup.find("div", id = os.environ.get("TDBM_TABLE_ID"))
     table = div.find("table")
 
-    headers = ['flag', 'name', 'mongol_bank', 'belen_bus_avah', 'belen_bus_zarah', 'belen_avah', 'belen_zarah']
-    table_rows = [ row for row in table.find_all('tr')]
+    df = pd.read_html(str(table))[0]
+    
+    del df['Mongol Bank']
+    del df[('Currency', 'Currency.1')]
 
-    result = [{headers[index]:cell.text.replace("\n", "").replace(" ","") for index,cell in enumerate(row.find_all("td")) } for row in table_rows]
-
-    for i in result:  
-        if 'name' in i:
-            if i['name'] == 'АНУ-ындоллар': 
-                print("TDBM")
-                print(i)
-    return URL
+    select = df.loc[df[('Currency', 'Currency')] == request['currency']]
+    
+    return {
+        'non_cash': {
+            'sell': {
+                'value': select.iloc[0][('In non cash', 'SELL')],
+                'currency': request['currency']
+            },
+            'buy': {
+                'value': select.iloc[0][('In non cash', 'BUY')],
+                'currency': request['currency']
+            }
+        },
+        'in_cash': {
+            'sell': {
+                'value': select.iloc[0][('In cash', 'SELL')],
+                'currency': request['currency']
+            },
+            'buy': {
+                'value': select.iloc[0][('In cash', 'BUY')],
+                'currency': request['currency']
+            }
+        },
+    }
 def Golomtbank():
     URL = os.environ.get("GOLOMT_URI")
     return URL
