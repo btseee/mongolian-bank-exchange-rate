@@ -1,27 +1,25 @@
-import requests
+from .bank_rates import Arigbank,Bogdbank,Capitronbank,Golomtbank,Khanbank,Mongolbank,Statebank,Tdbm,Xacbank
 
 class RatesSwitch():
     def bank(self,bank):
-        default = "Bank is not found!"
-
+        default = {"message":"Bank not found!"}
         return getattr(self, 'case_'+str(bank), lambda: default)()
 
-    
     def case_khanbank(self):
-        return 0
+        return Khanbank()
     def case_tdbm(self):
-        return 1
+        return Tdbm()
     def case_golomtbank(self):
-        return 2
+        return Golomtbank()
     def case_xacbank(self):
-        return 3
+        return Xacbank()
     def case_arigbank(self):
-        return 4
+        return Arigbank()
     def case_bogdbank(self):
-        return 5
+        return Bogdbank()
     def case_statebank(self):
-        return 6
+        return Statebank()
     def case_mongolbank(self):
-        return 7
+        return Mongolbank()
     def case_capitronbank(self):
-        return 8
+        return Capitronbank

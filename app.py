@@ -1,20 +1,21 @@
 from fastapi import FastAPI, Request
-from dotenv import load_dotenv
-import os
 from rates.rates import RatesSwitch
 
-load_dotenv()
-
 app = FastAPI()
-rates = RatesSwitch()
+rated = RatesSwitch()
+
 @app.get("/")
 async def root():
-    return {"message": "Server is working fine!"}
+    return {"message": "API is working fine bro!"}
 
 @app.get("/rates")
 async def rates(request: Request):
-    return request.bank
-
-@app.get("/exchange")
-async def exchange():
-    return
+    if(request.headers.get('Content-Type')):
+        request_json = await request.json()
+        
+        if(request_json['bank']):
+            return rated.bank(request_json['bank'])
+        else: 
+            return {"message": "Request not valid"}
+    else:
+        return {"message": "Empty request"}
