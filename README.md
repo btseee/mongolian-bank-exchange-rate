@@ -7,7 +7,7 @@
 ```
 {
     "bank":"tdbm",
-    "currency": "USD",
+    "currency": "MNT",
     "date":"2022/07/21"
 }
 ```
@@ -18,21 +18,21 @@
     "non_cash": {
         "sell": {
             "value": 3158.0,
-            "currency": "USD"
+            "currency": "MNT"
         },
         "buy": {
             "value": 3148.0,
-            "currency": "USD"
+            "currency": "MNT"
         }
     },
     "in_cash": {
         "sell": {
             "value": 3174.0,
-            "currency": "USD"
+            "currency": "MNT"
         },
         "buy": {
             "value": 3148.0,
-            "currency": "USD"
+            "currency": "MNT"
         }
     }
 }
