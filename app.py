@@ -11,7 +11,7 @@ async def root():
 async def rates(request: Request):
     if(request.headers.get('Content-Type')):
         request_json = await request.json()
-        
+
         if(request_json['bank']):
             if(request_json['currency']):
                 if(request_json['date']):

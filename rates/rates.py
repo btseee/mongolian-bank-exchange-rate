@@ -1,16 +1,22 @@
-from .bank_rates import Arigbank,Bogdbank,Capitronbank,Golomtbank,Khanbank,Mongolbank,Statebank,Tdbm,Xacbank
+from .bank_rates import Bank
 
 def BankSwitch(request):
-    switcher = {
-        "khanbank": Khanbank(request),
-        "tdbm": Tdbm(request),
-        "golomtbank": Golomtbank(request),
-        "xacbank": Xacbank(request),
-        "arigbank": Arigbank(request),
-        "bogdbank": Bogdbank(request),
-        "statebank": Statebank(request),
-        "mongolbank": Mongolbank(request),
-        "capitronbank": Capitronbank(request)
-    }
-
-    return switcher.get(request['bank'], "Bank not found!")
+    match request['bank']:
+        case "khanbank":
+            return Bank.Khanbank(request)
+        case "tdbm":
+            return Bank.Tdbm(request),
+        case "golomtbank":
+            return Bank.Golomtbank(request),
+        case "xacbank":
+            return Bank.Xacbank(request),
+        case "arigbank":
+            return Bank.Arigbank(request),
+        case "bogdbank":
+            return Bank.Bogdbank(request),
+        case "statebank":
+            return Bank.Statebank(request),
+        case "mongolbank":
+            return Bank.Mongolbank(request),
+        case "capitronbank":
+            return Bank.Capitronbank(request)
