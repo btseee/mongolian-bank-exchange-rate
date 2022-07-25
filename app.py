@@ -17,10 +17,10 @@ async def rates(request: Request):
                 if(request_json['date']):
                     return BankSwitch(request_json)
                 else:
-                    return {"message": "No date field in request"}
+                    return {"message": "No [date] field in request"}
             else: 
-                return {"message": "No currency field in request"}
+                return {"message": "No [currency] field in request"}
         else: 
-            return {"message": "Request not valid"}
+            return {"message": "No [bank] field in request"}
     else:
         return {"message": "Empty request or request not JSON"}
