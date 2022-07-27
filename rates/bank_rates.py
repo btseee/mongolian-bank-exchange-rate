@@ -6,6 +6,13 @@ import pandas as pd
 from dateutil import parser
 import datetime
 from requests.structures import CaseInsensitiveDict
+from selenium import webdriver
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
+from selenium.common.exceptions import TimeoutException
+from webdriver_manager.firefox import GeckoDriverManager
+from selenium.webdriver import ActionChains
 load_dotenv()
 
 class Bank():
@@ -274,12 +281,36 @@ class Bank():
                 }
     def Capitronbank(request):
         URL = os.environ.get("CAPITRONBANK_URI")
-        params = {
-            "lang":"en"
+        browser = webdriver.Firefox(executable_path=GeckoDriverManager().install())
+        browser.get(URL)
+        delay = 10 # seconds
+        WebDriverWait(browser, delay).until(EC.presence_of_element_located((By.CLASS_NAME,'rs-modal-header-close')))
+        browser.find_element(By.CLASS_NAME,'rs-modal-header-close').click()
+        soup = BeautifulSoup(browser.page_source, "html.parser")
+        browser.close()
+        table = soup.findAll("table")
+        df = pd.read_html(str(table))[0]
+        date = datetime.datetime.today()
+        select = df.loc[df[(date.strftime("%Y/%m/%d"), 'Currency')] == request['currency']]
+        return {
+            'non_cash': {
+                'sell': {
+                    'value': select.iloc[0][('In non cash', 'Sell')],
+                    'currency': 'MNT'
+                },
+                'buy': {
+                    'value': select.iloc[0][('In non cash', 'Buy')],
+                    'currency': 'MNT'
+                }
+            },
+            'in_cash': {
+                'sell': {
+                    'value': select.iloc[0][('In cash', 'Sell')],
+                    'currency': 'MNT'
+                },
+                'buy': {
+                    'value': select.iloc[0][('In cash', 'Buy')],
+                    'currency': 'MNT'
+                }
+            },
         }
-        page = requests.get(URL, params=params)
-        soup = BeautifulSoup(page.text.encode("utf-8"), "html.parser")
-        print(soup)
-        # table = soup.findAll("table", class_=os.environ.get("CAPITRONBANK_CLASS"))
-        # df = pd.read_html(str(table))[0]
-        return URL

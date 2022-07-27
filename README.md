@@ -9,15 +9,14 @@ Python 3.10+ дээш хувилбар дээр л ажиллана
 
 ### Ажлуулах
 ```
-uvicorn main:app --reload
+uvicorn app:app --reload
 ```
 
 ### Params сонголтууд
 ```
 "bank" сонголтууд:
     OK: khanbank,tdbm,golomtbank,bogdbank,statebank,mongolbank,
-    Өдөр сонгох боломжгүй: xacbank,arigbank,
-    Дуусаагүй: capitronbank
+    Өдөр сонгох боломжгүй: xacbank,arigbank,capitronbank
 
 "currency" сонголтууд:
     Зөвхөн томоор бичнэ шүү

@@ -5,3 +5,4 @@ requests
 pandas
 dotenv
 html5lib
+selenium
