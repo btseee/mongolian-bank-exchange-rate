@@ -1,30 +1,39 @@
 class ExchangeRequest:
-    bank: str
-    currency: str
-    date: str
-
     def __init__(self, bank: str, currency: str, date: str) -> None:
-        self.bank = bank
-        self.currency = currency
+        if(currency):
+            self.currency = currency.upper().strip()
+        self.bank = bank.lower().strip()
         self.date = date
-
-class Buy:
-    def __init__(self, value: float, currency: str) -> None:
-        self.value = value
-        self.currency = currency
-
-
-class isCash:
-    def __init__(self, sell: Buy, buy: Buy) -> None:
-        super().__init__(sell)
-        super().__init__(buy)
-
-
+    def show(self):
+        print(self.bank, self.currency, self.date)
 class ExchangeResponse:
-    def __init__(self, non_cash: isCash, in_cash: isCash) -> None:
-        super().__init__(non_cash)
-        super().__init__(in_cash)
+    def __init__(self,currency: str, noncash_sell_value: float, noncash_buy_value: float, cash_sell_value: float,cash_buy_value: float) -> None:
+        self.exrate = {
+            'non_cash': {
+                'sell': {
+                    'value': noncash_sell_value,
+                    'currency': currency.upper().strip(),
+                },
+                'buy': {
+                    'value': noncash_buy_value,
+                    'currency': currency.upper().strip(),
+                }
+            },
+            'in_cash': {
+                'sell': {
+                    'value': cash_sell_value,
+                    'currency': currency.upper().strip(),
+                },
+                'buy': {
+                    'value': cash_buy_value,
+                    'currency': currency.upper().strip(),
+                }
+            },
+        }
 
 
-obj1 = isCash(1,"MNT",2,"USD")
-print(obj1.__dict__)
+obj1 = ExchangeResponse("mnt", 1,2,3,4)
+
+obj2 = ExchangeRequest("tdb,","mnt","2020/5/5")
+
+obj2.show()
