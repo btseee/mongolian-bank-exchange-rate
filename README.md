@@ -15,11 +15,11 @@ uvicorn app:app --reload
 ### Params сонголтууд
 ```
 "bank" сонголтууд:
-    OK: khanbank,tdbm,golomtbank,bogdbank,statebank,mongolbank,
-    Өдөр сонгох боломжгүй: xacbank,arigbank,capitronbank
+    OK: khanbank,tdbm,golomtbank,bogdbank,statebank,mongolbank,xacbank,arigbank
+    Өдөр сонгох боломжгүй: capitronbank
 
 "currency" сонголтууд:
-    Зөвхөн томоор бичнэ шүү
+    Зөвхөн томоор бичнэ шүү.
 
 "date" сонголтууд:
     {жил}/{сар}/{өдөр} гэсэн форматтай илгээнэ үү

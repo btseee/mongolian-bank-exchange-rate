@@ -13,6 +13,7 @@ from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException
 from webdriver_manager.firefox import GeckoDriverManager
 from selenium.webdriver import ActionChains
+import time
 load_dotenv()
 
 class Bank():
@@ -115,13 +116,24 @@ class Bank():
             },
         }
     def Xacbank(request):
-        date = datetime.datetime.today() + datetime.timedelta(days=-1)
+        date = datetime.datetime.strptime(request["date"],"%Y/%m/%d").strftime("%Y.%m.%d")
         URL = os.environ.get("XACBANK_URI")
-        page = requests.get(URL,params={"lang":"en"})
-        soup = BeautifulSoup(page.text.encode("utf-8"), "html.parser")
+
+        browser = webdriver.Firefox(executable_path=GeckoDriverManager().install())
+        browser.get(URL)
+        delay = 10 # seconds
+        WebDriverWait(browser, delay)
+
+        browser.find_element(By.ID, 'rate_date').clear()
+        browser.find_element(By.ID, 'rate_date').send_keys(date)
+        browser.find_element(By.ID, 'rate_show').click()
+
+        
+        soup = BeautifulSoup(browser.page_source, "html.parser")
+        browser.close()
         table = soup.findAll("table", id = os.environ.get("XACBANK_TABLE_ID"))
         df = pd.read_html(str(table))[0]
-        select = df.loc[df[(date.strftime("%Y.%m.%d"), 'Currency')] == request['currency']]
+        select = df.loc[df[(str(date), 'Currency')] == request['currency']]
         return {
             'non_cash': {
                 'sell': {
@@ -145,31 +157,42 @@ class Bank():
             },
         }
     def Arigbank(request):
-        date = datetime.datetime.today().strftime("%Y-%m-%d")
+        date = datetime.datetime.strptime(request["date"],"%Y/%m/%d").strftime("%Y-%m-%d")
         URL = os.environ.get("ARIGBANK_URI")
-        page = requests.get(URL)
-        soup = BeautifulSoup(page.text.encode("utf-8"), "html.parser")
+
+        browser = webdriver.Firefox(executable_path=GeckoDriverManager().install())
+        browser.get(URL)
+        delay = 10 # seconds
+        WebDriverWait(browser, delay)
+
+        browser.find_element(By.ID, 'rate_datepicker').clear()
+        browser.find_element(By.ID, 'rate_datepicker').send_keys(date)
+        browser.find_element(By.ID, 'rate_datepicker').submit()
+
+        time.sleep(delay)
+        soup = BeautifulSoup(browser.page_source, "html.parser")
+        browser.close()
         table = soup.findAll("table", class_ = os.environ.get("ARIGBANK_CLASS"))
         df = pd.read_html(str(table))[0]
-        select = df.loc[df[(str(date), 'Money')] == request['currency']]
+        select = df.loc[df[(str(date), 'Валют')] == request['currency']]
         return {
             'non_cash': {
                 'sell': {
-                    'value': select.iloc[0][('In non-cash', 'Sell')],
+                    'value': select.iloc[0][('Бэлэн бус', 'Зарах')],
                     'currency': 'MNT'
                 },
                 'buy': {
-                    'value': select.iloc[0][('In non-cash', 'Buy')],
+                    'value': select.iloc[0][('Бэлэн бус', 'Авах')],
                     'currency': 'MNT'
                 }
             },
             'in_cash': {
                 'sell': {
-                    'value': select.iloc[0][('In cash', 'Sell')],
+                    'value': select.iloc[0][('Бэлэн', 'Зарах')],
                     'currency': 'MNT'
                 },
                 'buy': {
-                    'value': select.iloc[0][('In cash', 'Buy')],
+                    'value': select.iloc[0][('Бэлэн', 'Авах')],
                     'currency': 'MNT'
                 }
             },

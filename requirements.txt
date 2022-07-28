@@ -6,3 +6,4 @@ pandas
 dotenv
 html5lib
 selenium
+webdriver_manager
