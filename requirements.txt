@@ -1,8 +1,0 @@
-fastapi
-uvicorn
-beautifulsoup4
-requests
-pandas
-dotenv
-html5lib
-selenium
