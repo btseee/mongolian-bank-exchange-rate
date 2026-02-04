@@ -79,7 +79,7 @@ class MBankCrawler:
 
                     if currency_code in rates:
                         continue
-                    
+
                     rate_elements = row.locator("p.font-regular").all()
 
                     if len(rate_elements) >= 4:
@@ -105,12 +105,12 @@ class MBankCrawler:
         try:
             if isinstance(value, (int, float)):
                 return float(value) if value != 0 else None
-            
+
             cleaned = str(value).strip().replace(" ", "").replace("\xa0", "")
 
             if not cleaned or cleaned == "-" or cleaned == "0":
                 return None
-            
+
             if "." in cleaned and "," in cleaned:
                 cleaned = cleaned.replace(".", "").replace(",", ".")
             elif "." in cleaned and cleaned.count(".") == 1 and len(cleaned.split(".")[-1]) == 3:

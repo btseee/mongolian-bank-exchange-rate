@@ -45,15 +45,16 @@ class CKBankCrawler:
                         first_cell_text = cells[0].text_content() or ""
 
                         import re
-                        currency_match = re.search(r'\b([A-Z]{3})\b', first_cell_text)
+
+                        currency_match = re.search(r"\b([A-Z]{3})\b", first_cell_text)
                         if not currency_match:
                             continue
 
                         currency_code = currency_match.group(1).lower()
-                        
+
                         if currency_code in rates:
                             continue
-                        
+
                         cash_buy = self._parse_float(cells[2].text_content())
                         cash_sell = self._parse_float(cells[3].text_content())
                         noncash_buy = self._parse_float(cells[4].text_content())
