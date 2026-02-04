@@ -1,5 +1,4 @@
 import os
-import re
 from typing import Dict, Optional
 
 import urllib3
@@ -35,30 +34,39 @@ class CKBankCrawler:
 
     def _extract_rates_from_page(self, page) -> Dict[str, CurrencyDetail]:
         rates = {}
-        content = page.content()
 
-        patterns = [
-            (r"USD.*?(\d{4}\.?\d{0,2}).*?(\d{4}\.?\d{0,2})", "usd"),
-            (r"EUR.*?(\d{4}\.?\d{0,2}).*?(\d{4}\.?\d{0,2})", "eur"),
-            (r"CNY.*?(\d{3}\.?\d{0,2}).*?(\d{3}\.?\d{0,2})", "cny"),
-            (r"JPY.*?(\d{1,4}\.?\d{0,2}).*?(\d{1,4}\.?\d{0,2})", "jpy"),
-            (r"RUB.*?(\d{1,4}\.?\d{0,2}).*?(\d{1,4}\.?\d{0,2})", "rub"),
-            (r"KRW.*?(\d{1,4}\.?\d{0,2}).*?(\d{1,4}\.?\d{0,2})", "krw"),
-            (r"GBP.*?(\d{4}\.?\d{0,2}).*?(\d{4}\.?\d{0,2})", "gbp"),
-        ]
+        try:
+            rows = page.locator("table tbody tr, .uk-table tbody tr").all()
 
-        for pattern, currency_code in patterns:
-            try:
-                match = re.search(pattern, content, re.DOTALL | re.IGNORECASE)
-                if match:
-                    cash_buy = self._parse_float(match.group(1))
-                    cash_sell = self._parse_float(match.group(2))
+            for row in rows:
+                cells = row.locator("td").all()
+                if len(cells) >= 6:
+                    try:
+                        first_cell_text = cells[0].text_content() or ""
 
-                    rates[currency_code] = CurrencyDetail(
-                        cash=Rate(buy=cash_buy, sell=cash_sell), noncash=Rate(buy=cash_buy, sell=cash_sell)
-                    )
-            except Exception:
-                continue
+                        import re
+                        currency_match = re.search(r'\b([A-Z]{3})\b', first_cell_text)
+                        if not currency_match:
+                            continue
+
+                        currency_code = currency_match.group(1).lower()
+                        
+                        if currency_code in rates:
+                            continue
+                        
+                        cash_buy = self._parse_float(cells[2].text_content())
+                        cash_sell = self._parse_float(cells[3].text_content())
+                        noncash_buy = self._parse_float(cells[4].text_content())
+                        noncash_sell = self._parse_float(cells[5].text_content())
+
+                        rates[currency_code] = CurrencyDetail(
+                            cash=Rate(buy=cash_buy, sell=cash_sell),
+                            noncash=Rate(buy=noncash_buy, sell=noncash_sell),
+                        )
+                    except Exception:
+                        continue
+        except Exception:
+            pass
 
         return rates
 
