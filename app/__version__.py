@@ -1,4 +1,4 @@
-__version__ = "1.0.6"
+__version__ = "1.0.7"
 __title__ = "mongolian-bank-exchange-rate"
 __description__ = "Mongolian Bank Exchange Rate API"
 __author__ = "Battseren Badral"
