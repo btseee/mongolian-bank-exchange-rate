@@ -11,7 +11,7 @@ class TestRootEndpoint:
         assert "name" in data
         assert "version" in data
         assert "supported_banks" in data
-        assert len(data["supported_banks"]) == 13
+        assert len(data["supported_banks"]) == 15
 
     def test_root_contains_endpoints(self, client):
         response = client.get("/")

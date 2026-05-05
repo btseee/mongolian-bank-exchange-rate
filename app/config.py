@@ -71,5 +71,15 @@ class Config:
     TRANSBANK_URI = _env("TRANSBANK_URI", "https://transbank.mn/en/exchange")
     MBANK_URI = _env("MBANK_URI", "https://m-bank.mn/")
 
+    # Firebase Firestore-based APIs
+    SENDMN_FIRESTORE_URL = _env(
+        "SENDMN_FIRESTORE_URL",
+        "https://firestore.googleapis.com/v1/projects/sendmn-remit/databases/(default)/documents/rate/exrate?key=AIzaSyCrYSDevTZ_WigjBGeOuoGj-ntLO5v9taY",
+    )
+    NSHARGA_FIRESTORE_BASE_URL = _env(
+        "NSHARGA_FIRESTORE_BASE_URL",
+        "https://firestore.googleapis.com/v1/projects/nsharga-2ec6a/databases/(default)/documents/currency_rates?key=AIzaSyBA-tL_dqi1MsO43OkwllUpV7k6rf0Iys4",
+    )
+
 
 config = Config()

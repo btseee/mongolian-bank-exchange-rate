@@ -8,7 +8,9 @@ from app.crawlers.golomt import GolomtBank
 from app.crawlers.khanbank import KhanBank
 from app.crawlers.mbank import MBank
 from app.crawlers.mongolbank import MongolBank
+from app.crawlers.naimansharga import NaimanSharga
 from app.crawlers.nibank import NIBank
+from app.crawlers.sendmn import SendMN
 from app.crawlers.statebank import StateBank
 from app.crawlers.tdbm import TDBM
 from app.crawlers.transbank import TransBank
@@ -22,6 +24,8 @@ HTTP_CRAWLERS = [
     StateBank,
     MongolBank,
     CapitronBank,
+    NaimanSharga,
+    SendMN,
 ]
 PLAYWRIGHT_CRAWLERS = [TDBM, BogdBank, CKBank, NIBank, TransBank, MBank]
 ALL_CRAWLERS = HTTP_CRAWLERS + PLAYWRIGHT_CRAWLERS
@@ -36,6 +40,8 @@ __all__ = [
     "StateBank",
     "MongolBank",
     "CapitronBank",
+    "NaimanSharga",
+    "SendMN",
     "TDBM",
     "BogdBank",
     "CKBank",

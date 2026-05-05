@@ -228,7 +228,7 @@ class TestAllCrawlersImport:
     def test_all_crawlers_count(self):
         from app.crawlers import ALL_CRAWLERS
 
-        assert len(ALL_CRAWLERS) == 13
+        assert len(ALL_CRAWLERS) == 15
 
     def test_crawler_map_keys(self):
         from app.crawlers import CRAWLER_MAP
@@ -241,6 +241,8 @@ class TestAllCrawlersImport:
             "statebank",
             "mongolbank",
             "capitronbank",
+            "naimansharga",
+            "sendmn",
             "tdbm",
             "bogdbank",
             "ckbank",
@@ -290,3 +292,202 @@ class TestPlaywrightCrawlersExist:
 
         crawler = MBank(datetime.date.today().isoformat())
         assert crawler.BANK_NAME == "MBank"
+
+
+class TestSendMN:
+    @patch("app.crawlers.sendmn.BaseCrawler.get")
+    def test_crawl_success(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "fields": {
+                "data": {
+                    "arrayValue": {
+                        "values": [
+                            {
+                                "mapValue": {
+                                    "fields": {
+                                        "currency": {"stringValue": "USD"},
+                                        "buy": {"stringValue": "3570"},
+                                        "sell": {"stringValue": "3615"},
+                                    }
+                                }
+                            },
+                            {
+                                "mapValue": {
+                                    "fields": {
+                                        "currency": {"stringValue": "EUR"},
+                                        "buy": {"stringValue": "3900"},
+                                        "sell": {"stringValue": "3950"},
+                                    }
+                                }
+                            },
+                        ]
+                    }
+                }
+            }
+        }
+        mock_resp.raise_for_status = MagicMock()
+        mock_get.return_value = mock_resp
+
+        from app.crawlers.sendmn import SendMN
+
+        crawler = SendMN(datetime.date.today().isoformat())
+        rates = crawler.crawl()
+
+        assert rates is not None
+        assert "usd" in rates
+        assert rates["usd"].cash.buy == 3570.0
+        assert rates["usd"].cash.sell == 3615.0
+        assert rates["usd"].noncash.buy == 3570.0
+        assert rates["usd"].noncash.sell == 3615.0
+        assert "eur" in rates
+
+    @patch("app.crawlers.sendmn.BaseCrawler.get")
+    def test_crawl_empty_values(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"fields": {}}
+        mock_resp.raise_for_status = MagicMock()
+        mock_get.return_value = mock_resp
+
+        from app.crawlers.sendmn import SendMN
+
+        crawler = SendMN(datetime.date.today().isoformat())
+        rates = crawler.crawl()
+        assert rates == {}
+
+    @patch("app.crawlers.sendmn.BaseCrawler.get")
+    def test_crawl_skips_invalid_code(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "fields": {
+                "data": {
+                    "arrayValue": {
+                        "values": [
+                            {
+                                "mapValue": {
+                                    "fields": {
+                                        "currency": {"stringValue": "INVALID"},
+                                        "buy": {"stringValue": "100"},
+                                        "sell": {"stringValue": "110"},
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+        mock_resp.raise_for_status = MagicMock()
+        mock_get.return_value = mock_resp
+
+        from app.crawlers.sendmn import SendMN
+
+        crawler = SendMN(datetime.date.today().isoformat())
+        rates = crawler.crawl()
+        assert rates == {}
+
+
+class TestNaimanSharga:
+    @patch("app.crawlers.naimansharga.BaseCrawler.get")
+    def test_crawl_success(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "fields": {
+                "USD": {
+                    "mapValue": {
+                        "fields": {
+                            "avah": {"doubleValue": 3582},
+                            "zarah": {"doubleValue": 3587},
+                        }
+                    }
+                },
+                "EUR": {
+                    "mapValue": {
+                        "fields": {
+                            "avah": {"doubleValue": 3900},
+                            "zarah": {"doubleValue": 3960},
+                        }
+                    }
+                },
+                "createdAt": {"timestampValue": "2026-05-05T00:00:00Z"},
+                "updatedAt": {"timestampValue": "2026-05-05T08:00:00Z"},
+            }
+        }
+        mock_resp.raise_for_status = MagicMock()
+        mock_get.return_value = mock_resp
+
+        from app.crawlers.naimansharga import NaimanSharga
+
+        crawler = NaimanSharga(datetime.date.today().isoformat())
+        rates = crawler.crawl()
+
+        assert rates is not None
+        assert "usd" in rates
+        assert rates["usd"].cash.buy == 3582.0
+        assert rates["usd"].cash.sell == 3587.0
+        assert rates["usd"].noncash.buy == 3582.0
+        assert rates["usd"].noncash.sell == 3587.0
+        assert "eur" in rates
+        assert "createdat" not in rates
+        assert "updatedat" not in rates
+
+    @patch("app.crawlers.naimansharga.BaseCrawler.get")
+    def test_crawl_fallback_to_yesterday(self, mock_get):
+        today = datetime.date.today().isoformat()
+        yesterday = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
+
+        not_found = MagicMock()
+        not_found.status_code = 404
+
+        found = MagicMock()
+        found.status_code = 200
+        found.json.return_value = {
+            "fields": {
+                "USD": {
+                    "mapValue": {
+                        "fields": {
+                            "avah": {"doubleValue": 3580},
+                            "zarah": {"doubleValue": 3585},
+                        }
+                    }
+                },
+            }
+        }
+        found.raise_for_status = MagicMock()
+
+        mock_get.side_effect = [not_found, found]
+
+        from app.crawlers.naimansharga import NaimanSharga
+
+        crawler = NaimanSharga(today)
+        rates = crawler.crawl()
+
+        assert "usd" in rates
+        assert mock_get.call_count == 2
+
+    @patch("app.crawlers.naimansharga.BaseCrawler.get")
+    def test_crawl_skips_non_3char_codes(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "fields": {
+                "USDD": {
+                    "mapValue": {
+                        "fields": {
+                            "avah": {"doubleValue": 3582},
+                            "zarah": {"doubleValue": 3587},
+                        }
+                    }
+                },
+                "updatedAt": {"timestampValue": "2026-05-05T08:00:00Z"},
+            }
+        }
+        mock_resp.raise_for_status = MagicMock()
+        mock_get.return_value = mock_resp
+
+        from app.crawlers.naimansharga import NaimanSharga
+
+        crawler = NaimanSharga(datetime.date.today().isoformat())
+        rates = crawler.crawl()
+        assert rates == {}
