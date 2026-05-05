@@ -59,7 +59,7 @@ class Config:
         "https://www.mongolbank.mn/en/currency-rate-movement/data",
     )
     CAPITRONBANK_API_URL = _env(
-        "CAPITRONBANK_URI",
+        "CAPITRONBANK_API_URL",
         "https://www.capitronbank.mn/admin/en/wp-json/bank/rates/capitronbank",
     )
 

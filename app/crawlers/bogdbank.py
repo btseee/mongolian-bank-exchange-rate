@@ -1,6 +1,5 @@
 """BogdBank crawler using Playwright for JavaScript rendering."""
 
-from datetime import date
 from typing import Dict
 
 from app.config import config
@@ -12,11 +11,7 @@ class BogdBank(PlaywrightCrawler):
     BANK_NAME = "BogdBank"
 
     def _crawl_page(self, page) -> Dict[str, CurrencyDetail]:
-        url = (
-            f"{config.BOGDBANK_URI}?date={self.date}"
-            if self.date == date.today().isoformat()
-            else config.BOGDBANK_URI
-        )
+        url = f"{config.BOGDBANK_URI}?date={self.date}"
         page.goto(url, timeout=self.timeout, wait_until="networkidle")
         page.wait_for_selector("table", timeout=self.timeout)
         page.wait_for_timeout(2000)
@@ -27,7 +22,7 @@ class BogdBank(PlaywrightCrawler):
             if len(cells) >= 6:
                 raw = cells[0].inner_text().strip()
                 code = raw.replace("\xa0", "").replace(" ", "").lower()
-                if code and len(code) >= 3:
+                if code and len(code) == 3:
                     rates[code] = self.make_rate(
                         cash_buy=self.parse_float(cells[2].inner_text()),
                         cash_sell=self.parse_float(cells[3].inner_text()),

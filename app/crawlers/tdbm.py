@@ -19,10 +19,11 @@ class TDBM(PlaywrightCrawler):
         )
         page.wait_for_selector("table.table-hover", timeout=self.timeout)
 
+        target = datetime.strptime(self.date, "%Y-%m-%d")
         date_inputs = page.locator("input[type=date]").all()
         buttons = None
         if date_inputs:
-            date_inputs[0].fill(datetime.now().strftime("%Y-%m-%d"))
+            date_inputs[0].fill(target.strftime("%Y-%m-%d"))
             buttons = page.locator(
                 "form button, form input[type=submit]"
             ).all()
@@ -36,7 +37,7 @@ class TDBM(PlaywrightCrawler):
 
         rates = self._parse_table(page)
         if not rates and date_inputs:
-            yesterday = datetime.now() - timedelta(days=1)
+            yesterday = target - timedelta(days=1)
             date_inputs[0].fill(yesterday.strftime("%Y-%m-%d"))
             if buttons:
                 buttons[0].click()

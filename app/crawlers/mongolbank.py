@@ -21,7 +21,9 @@ class MongolBank(BaseCrawler):
 
     def _parse(self, xml_text: str) -> Dict[str, CurrencyDetail]:
         rates = {}
-        root = etree.fromstring(xml_text.encode("utf-8"))
+        # Disable entity resolution and network access to prevent XXE attacks
+        parser = etree.XMLParser(resolve_entities=False, no_network=True)
+        root = etree.fromstring(xml_text.encode("utf-8"), parser)
         for row in root.xpath("//Ccy"):
             code = row.find("CcyNm_EN").text.lower()
             rate = self.parse_float(row.find("Rate").text)

@@ -24,11 +24,12 @@ class MBank(BaseCrawler):
         session = requests.Session()
         session.verify = self.ssl_verify
 
-        session.post(
+        login_resp = session.post(
             f"{config.MBANK_URI}api/login",
             headers=self.HEADERS,
             timeout=self.timeout,
         )
+        login_resp.raise_for_status()
 
         resp = session.get(
             f"{config.MBANK_URI}api",

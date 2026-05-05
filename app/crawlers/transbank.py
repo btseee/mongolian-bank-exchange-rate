@@ -47,7 +47,7 @@ class TransBank(PlaywrightCrawler):
             cells = row.locator("td").all()
             if len(cells) >= 7:
                 code = cells[0].inner_text().strip().split()[0].lower()
-                if code and len(code) <= 10:
+                if code and len(code) == 3:
                     rates[code] = self.make_rate(
                         cash_buy=self.parse_float(cells[3].inner_text()),
                         cash_sell=self.parse_float(cells[4].inner_text()),
