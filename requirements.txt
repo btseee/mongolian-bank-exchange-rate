@@ -13,17 +13,18 @@ python-dotenv>=1.0.0
 schedule>=1.2.0
 
 # HTTP
-requests>=2.31.0
+requests>=2.32.0
 
 # Web scraping
 playwright>=1.40.0
-lxml>=4.9.0
+lxml>=5.2.0
 
 # Dev
-black>=23.0.0
+black>=24.3.0
 isort>=5.12.0
+Pygments>=2.15.0
 
 # Testing
-pytest>=7.4.0
+pytest>=7.4.4
 pytest-cov>=4.1.0
 httpx>=0.25.0
