@@ -30,7 +30,12 @@ class SendMN(BaseCrawler):
         rates = {}
         for item in values:
             fields = item.get("mapValue", {}).get("fields", {})
-            code = fields.get("currency", {}).get("stringValue", "").strip().lower()
+            code = (
+                fields.get("currency", {})
+                .get("stringValue", "")
+                .strip()
+                .lower()
+            )
             if len(code) != 3:
                 continue
             buy = self.parse_float(fields.get("buy", {}).get("stringValue"))

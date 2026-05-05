@@ -435,7 +435,9 @@ class TestNaimanSharga:
     @patch("app.crawlers.naimansharga.BaseCrawler.get")
     def test_crawl_fallback_to_yesterday(self, mock_get):
         today = datetime.date.today().isoformat()
-        yesterday = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
+        yesterday = (
+            datetime.date.today() - datetime.timedelta(days=1)
+        ).isoformat()
 
         not_found = MagicMock()
         not_found.status_code = 404
