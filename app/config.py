@@ -14,7 +14,32 @@ def _env_bool(key: str, default: bool = False) -> bool:
 
 
 def _env_int(key: str, default: int = 0) -> int:
-    return int(_env(key, str(default)))
+    value = _env(key, str(default))
+    try:
+        return int(value)
+    except ValueError as exc:
+        raise ValueError(f"{key} must be an integer") from exc
+
+
+def _env_positive_int(key: str, default: int) -> int:
+    value = _env_int(key, default)
+    if value < 1:
+        raise ValueError(f"{key} must be greater than or equal to 1")
+    return value
+
+
+def _env_list(key: str, default: str = "") -> list[str]:
+    return [
+        item.strip() for item in _env(key, default).split(",") if item.strip()
+    ]
+
+
+def _validate_cors_config(origins: list[str], allow_credentials: bool) -> None:
+    if allow_credentials and "*" in origins:
+        raise ValueError(
+            "CORS_ALLOW_CREDENTIALS cannot be true when "
+            "CORS_ORIGINS includes *"
+        )
 
 
 def _database_url() -> str:
@@ -33,13 +58,26 @@ class Config:
 
     # HTTP settings
     SSL_VERIFY = _env_bool("SSL_VERIFY", False)
-    REQUEST_TIMEOUT = _env_int("REQUEST_TIMEOUT", 30)
-    PLAYWRIGHT_TIMEOUT = _env_int("PLAYWRIGHT_TIMEOUT", 60000)
+    REQUEST_TIMEOUT = _env_positive_int("REQUEST_TIMEOUT", 30)
+    PLAYWRIGHT_TIMEOUT = _env_positive_int("PLAYWRIGHT_TIMEOUT", 60000)
+
+    # Public API safeguards
+    API_MAX_LIMIT = _env_positive_int("API_MAX_LIMIT", 100)
+    CORS_ORIGINS = _env_list("CORS_ORIGINS", "*")
+    CORS_ALLOW_CREDENTIALS = _env_bool("CORS_ALLOW_CREDENTIALS", False)
+    _validate_cors_config(CORS_ORIGINS, CORS_ALLOW_CREDENTIALS)
+    TRUST_PROXY_HEADERS = _env_bool("TRUST_PROXY_HEADERS", False)
+    RATE_LIMIT_ENABLED = _env_bool("RATE_LIMIT_ENABLED", True)
+    RATE_LIMIT_REQUESTS = _env_positive_int("RATE_LIMIT_REQUESTS", 60)
+    RATE_LIMIT_WINDOW_SECONDS = _env_positive_int(
+        "RATE_LIMIT_WINDOW_SECONDS", 60
+    )
+    RATE_LIMIT_MAX_CLIENTS = _env_positive_int("RATE_LIMIT_MAX_CLIENTS", 10000)
 
     # Parallel execution
     ENABLE_PARALLEL = _env_bool("ENABLE_PARALLEL", True)
-    MAX_WORKERS = _env_int("MAX_WORKERS", 8)
-    PLAYWRIGHT_MAX_WORKERS = _env_int("PLAYWRIGHT_MAX_WORKERS", 3)
+    MAX_WORKERS = _env_positive_int("MAX_WORKERS", 8)
+    PLAYWRIGHT_MAX_WORKERS = _env_positive_int("PLAYWRIGHT_MAX_WORKERS", 3)
 
     # Bank API endpoints
     KHANBANK_URI = _env(
@@ -49,6 +87,9 @@ class Config:
     XACBANK_URI = _env("XACBANK_URI", "https://xacbank.mn/api/currencies")
     ARIGBANK_API_URL = _env(
         "ARIGBANK_API_URL", "https://www.arigbank.mn/exchange/getRate"
+    )
+    ARIGBANK_SIGNIN_URL = _env(
+        "ARIGBANK_SIGNIN_URL", "https://www.arigbank.mn/exchange/signIn"
     )
     ARIGBANK_BEARER_TOKEN = _env("ARIGBANK_BEARER_TOKEN")
     STATEBANK_URI = _env(

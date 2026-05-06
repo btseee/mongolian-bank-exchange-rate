@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.api.api import app
+from app.api.api import _rate_limit_hits, app
 from app.db.database import get_db
 from app.models.currency import Base
 
@@ -36,7 +36,10 @@ def test_db():
 
 @pytest.fixture(scope="function")
 def client(test_db):
-    return TestClient(app)
+    _rate_limit_hits.clear()
+    with TestClient(app) as test_client:
+        yield test_client
+    _rate_limit_hits.clear()
 
 
 @pytest.fixture

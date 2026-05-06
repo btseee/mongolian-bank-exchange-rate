@@ -1,13 +1,18 @@
-# Mongolian bank exchange-rate API - Docker Compose config
 services:
-  # API service
   api:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: mongolian-bank-api
-    env_file:
-      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-bankuser}:${POSTGRES_PASSWORD:-bankpass123}@db:5432/${POSTGRES_DB:-exchange_rates}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-false}
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
+      RATE_LIMIT_REQUESTS: ${RATE_LIMIT_REQUESTS:-60}
+      RATE_LIMIT_WINDOW_SECONDS: ${RATE_LIMIT_WINDOW_SECONDS:-60}
+      RATE_LIMIT_MAX_CLIENTS: ${RATE_LIMIT_MAX_CLIENTS:-10000}
+      API_MAX_LIMIT: ${API_MAX_LIMIT:-100}
     ports:
       - "8000:8000"
     depends_on:
@@ -19,21 +24,30 @@ services:
     networks:
       - bank-network
     healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health', timeout=5)"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import requests; requests.get('http://localhost:8000/health', timeout=5)",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
 
-  # Scheduled scraper
   cron:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: mongolian-bank-cron
-    command: python scripts/cron.py
-    env_file:
-      - .env
+    command: python -m scripts.cron
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-bankuser}:${POSTGRES_PASSWORD:-bankpass123}@db:5432/${POSTGRES_DB:-exchange_rates}
+      CRON_SCHEDULE: ${CRON_SCHEDULE:-0 9 * * *}
+      ENABLE_PARALLEL: ${ENABLE_PARALLEL:-true}
+      MAX_WORKERS: ${MAX_WORKERS:-8}
+      PLAYWRIGHT_MAX_WORKERS: ${PLAYWRIGHT_MAX_WORKERS:-3}
     depends_on:
       db:
         condition: service_healthy
@@ -43,7 +57,6 @@ services:
     networks:
       - bank-network
 
-  # PostgreSQL database
   db:
     image: postgres:15-alpine
     container_name: mongolian-bank-db
@@ -63,24 +76,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-  # NGINX reverse proxy (optional)
-  nginx:
-    image: nginx:alpine
-    container_name: mongolian-bank-nginx
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro
-    depends_on:
-      - api
-    restart: unless-stopped
-    networks:
-      - bank-network
-    profiles:
-      - production
 
 volumes:
   postgres_data:

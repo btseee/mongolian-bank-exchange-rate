@@ -11,15 +11,27 @@ class StateBank(BaseCrawler):
     def crawl(self) -> Dict[str, CurrencyDetail]:
         resp = self.get(config.STATEBANK_URI)
         resp.raise_for_status()
-        return self._parse(resp.json().get("data", []))
+        payload = resp.json()
+        data = (
+            payload.get("data", []) if isinstance(payload, dict) else payload
+        )
+        return self._parse(data)
 
     def _parse(self, data: list) -> Dict[str, CurrencyDetail]:
         rates = {}
         for item in data:
-            code = item.get("CurrencyCode", "").lower()
+            code = (
+                item.get("CurrencyCode") or item.get("curCode") or ""
+            ).lower()
             if code:
                 rates[code] = self.make_rate(
-                    cash_buy=self.parse_float(item.get("BuyRate")),
-                    cash_sell=self.parse_float(item.get("SellRate")),
+                    cash_buy=self.parse_float(
+                        item.get("BuyRate") or item.get("cashBuy")
+                    ),
+                    cash_sell=self.parse_float(
+                        item.get("SellRate") or item.get("cashSale")
+                    ),
+                    noncash_buy=self.parse_float(item.get("nonCashBuy")),
+                    noncash_sell=self.parse_float(item.get("nonCashSale")),
                 )
         return rates

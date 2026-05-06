@@ -1,0 +1,24 @@
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+  categories:
+    - title: Нэмсэн
+      labels:
+        - enhancement
+        - feature
+    - title: Зассан
+      labels:
+        - bug
+        - fix
+    - title: Баримт бичиг
+      labels:
+        - documentation
+    - title: Дотоод сайжруулалт
+      labels:
+        - refactoring
+        - tests
+        - dependencies
+    - title: Бусад өөрчлөлт
+      labels:
+        - "*"

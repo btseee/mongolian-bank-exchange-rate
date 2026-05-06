@@ -10,8 +10,25 @@ Usage:
 import sys
 from datetime import date, timedelta
 
+from app.db.database import init_db
 from app.services.scraper import ScraperService
 from app.utils.logger import logger
+from app.utils.playwright_setup import ensure_playwright_browsers
+
+
+def parse_date_args(args: list[str]) -> tuple[date, date]:
+    start = date(2026, 1, 1)
+    end = date.today()
+
+    if len(args) >= 1:
+        start = date.fromisoformat(args[0])
+    if len(args) >= 2:
+        end = date.fromisoformat(args[1])
+
+    if start > end:
+        raise ValueError("Start date must be <= end date")
+
+    return start, end
 
 
 def backfill(start: date, end: date):
@@ -33,18 +50,14 @@ def backfill(start: date, end: date):
 
 
 def main():
-    start = date(2026, 1, 1)
-    end = date.today()
-
-    if len(sys.argv) >= 2:
-        start = date.fromisoformat(sys.argv[1])
-    if len(sys.argv) >= 3:
-        end = date.fromisoformat(sys.argv[2])
-
-    if start > end:
-        logger.error("Start date must be <= end date")
+    try:
+        start, end = parse_date_args(sys.argv[1:])
+    except ValueError as exc:
+        logger.error(str(exc))
         sys.exit(1)
 
+    ensure_playwright_browsers()
+    init_db()
     backfill(start, end)
 
 

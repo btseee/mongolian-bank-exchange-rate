@@ -1,6 +1,8 @@
 import datetime
 from unittest.mock import MagicMock, patch
 
+import requests
+
 from app.crawlers import (
     ArigBank,
     CapitronBank,
@@ -89,6 +91,7 @@ class TestArigBank:
     def test_crawl_success(self, mock_post, mock_config):
         mock_config.ARIGBANK_BEARER_TOKEN = "test-token"
         mock_config.ARIGBANK_API_URL = "https://api.example.com"
+        mock_config.ARIGBANK_SIGNIN_URL = "https://api.example.com/signIn"
         mock_resp = MagicMock()
         mock_resp.json.return_value = {
             "data": [
@@ -111,16 +114,108 @@ class TestArigBank:
         assert "usd" in rates
         assert rates["usd"].cash.buy == 3420.5
 
+    @patch("app.crawlers.arigbank.config")
+    @patch("app.crawlers.arigbank.BaseCrawler.post")
+    def test_crawl_signs_in_when_token_not_configured(
+        self, mock_post, mock_config
+    ):
+        mock_config.ARIGBANK_BEARER_TOKEN = ""
+        mock_config.ARIGBANK_API_URL = "https://api.example.com/getRate"
+        mock_config.ARIGBANK_SIGNIN_URL = "https://api.example.com/signIn"
+
+        sign_in_resp = MagicMock()
+        sign_in_resp.json.return_value = {"token": "fresh-token"}
+        sign_in_resp.raise_for_status = MagicMock()
+
+        rate_resp = MagicMock()
+        rate_resp.status_code = 200
+        rate_resp.json.return_value = {
+            "status": 200,
+            "message": "Амжилттай",
+            "data": [
+                {
+                    "curCode": "USD",
+                    "belenBuyRate": 3568,
+                    "belenSellRate": 3596,
+                    "belenBusBuyRate": 3568,
+                    "belenBusSellRate": 3578,
+                }
+            ],
+        }
+        rate_resp.raise_for_status = MagicMock()
+        mock_post.side_effect = [sign_in_resp, rate_resp]
+
+        crawler = ArigBank(datetime.date.today().isoformat())
+        rates = crawler.crawl()
+
+        assert rates["usd"].cash.buy == 3568.0
+        assert (
+            mock_post.call_args_list[0].args[0]
+            == mock_config.ARIGBANK_SIGNIN_URL
+        )
+        assert mock_post.call_args_list[1].kwargs["headers"][
+            "Authorization"
+        ] == ("Bearer fresh-token")
+
+    @patch("app.crawlers.arigbank.config")
+    @patch("app.crawlers.arigbank.BaseCrawler.post")
+    def test_crawl_refreshes_expired_configured_token(
+        self, mock_post, mock_config
+    ):
+        mock_config.ARIGBANK_BEARER_TOKEN = "expired-token"
+        mock_config.ARIGBANK_API_URL = "https://api.example.com/getRate"
+        mock_config.ARIGBANK_SIGNIN_URL = "https://api.example.com/signIn"
+
+        expired_resp = MagicMock()
+        expired_resp.status_code = 200
+        expired_resp.json.return_value = {
+            "status": 401,
+            "message": "Token expired!",
+            "data": None,
+        }
+        expired_resp.raise_for_status = MagicMock()
+
+        sign_in_resp = MagicMock()
+        sign_in_resp.json.return_value = {"token": "fresh-token"}
+        sign_in_resp.raise_for_status = MagicMock()
+
+        rate_resp = MagicMock()
+        rate_resp.status_code = 200
+        rate_resp.json.return_value = {
+            "status": 200,
+            "data": [
+                {
+                    "curCode": "USD",
+                    "belenBuyRate": 3568,
+                    "belenSellRate": 3596,
+                    "belenBusBuyRate": 3568,
+                    "belenBusSellRate": 3578,
+                }
+            ],
+        }
+        rate_resp.raise_for_status = MagicMock()
+        mock_post.side_effect = [expired_resp, sign_in_resp, rate_resp]
+
+        crawler = ArigBank(datetime.date.today().isoformat())
+        rates = crawler.crawl()
+
+        assert rates["usd"].noncash.sell == 3578.0
+        assert len(mock_post.call_args_list) == 3
+
 
 class TestStateBank:
     @patch("app.crawlers.statebank.BaseCrawler.get")
     def test_crawl_success(self, mock_get):
         mock_resp = MagicMock()
-        mock_resp.json.return_value = {
-            "data": [
-                {"CurrencyCode": "USD", "BuyRate": 3420.5, "SellRate": 3450.0}
-            ]
-        }
+        mock_resp.json.return_value = [
+            {
+                "curCode": "USD",
+                "cashBuy": 3420.5,
+                "cashSale": 3450.0,
+                "nonCashBuy": 3415.0,
+                "nonCashSale": 3455.0,
+            }
+        ]
         mock_resp.raise_for_status = MagicMock()
         mock_get.return_value = mock_resp
 
@@ -130,29 +225,77 @@ class TestStateBank:
         assert rates is not None
         assert "usd" in rates
         assert rates["usd"].cash.buy == 3420.5
+        assert rates["usd"].noncash.sell == 3455.0
+
+    def test_parse_legacy_wrapped_response(self):
+        crawler = StateBank(datetime.date.today().isoformat())
+
+        rates = crawler._parse(
+            [
+                {
+                    "CurrencyCode": "USD",
+                    "BuyRate": 3420.5,
+                    "SellRate": 3450.0,
+                }
+            ]
+        )
+
+        assert rates["usd"].cash.buy == 3420.5
 
 
 class TestMongolBank:
-    @patch("app.crawlers.mongolbank.BaseCrawler.get")
-    def test_crawl_success(self, mock_get):
+    @patch("app.crawlers.mongolbank.BaseCrawler.post")
+    def test_crawl_success(self, mock_post):
+        today = datetime.date.today().isoformat()
         mock_resp = MagicMock()
-        mock_resp.text = """<?xml version="1.0"?>
-        <Root>
-            <Ccy>
-                <CcyNm_EN>USD</CcyNm_EN>
-                <Rate>3435.5</Rate>
-            </Ccy>
-        </Root>"""
+        mock_resp.json.return_value = {
+            "success": True,
+            "data": [
+                {
+                    "RATE_DATE": today,
+                    "USD": "3,575.94",
+                    "EUR": "4,197.62",
+                }
+            ],
+        }
         mock_resp.raise_for_status = MagicMock()
-        mock_get.return_value = mock_resp
+        mock_post.return_value = mock_resp
 
-        crawler = MongolBank(datetime.date.today().isoformat())
+        crawler = MongolBank(today)
         rates = crawler.crawl()
 
         assert rates is not None
         assert "usd" in rates
+        assert rates["usd"].noncash.buy == 3575.94
+        assert rates["usd"].noncash.sell == 3575.94
+
+    def test_parse_legacy_xml(self):
+        crawler = MongolBank(datetime.date.today().isoformat())
+
+        rates = crawler._parse("""<?xml version="1.0"?>
+            <Root>
+                <Ccy>
+                    <CcyNm_EN>USD</CcyNm_EN>
+                    <Rate>3435.5</Rate>
+                </Ccy>
+            </Root>""")
+
         assert rates["usd"].noncash.buy == 3435.5
         assert rates["usd"].noncash.sell == 3435.5
+
+    def test_parse_recovers_from_unescaped_entity(self):
+        crawler = MongolBank(datetime.date.today().isoformat())
+
+        rates = crawler._parse("""<?xml version="1.0"?>
+            <Root>
+                <Ccy>
+                    <CcyNm_EN>USD</CcyNm_EN>
+                    <CcyNm_MN>Ам доллар & бусад</CcyNm_MN>
+                    <Rate>3435.5</Rate>
+                </Ccy>
+            </Root>""")
+
+        assert rates["usd"].noncash.buy == 3435.5
 
 
 class TestCapitronBank:
@@ -177,6 +320,23 @@ class TestCapitronBank:
         assert rates is not None
         assert "usd" in rates
         assert rates["usd"].cash.buy == 3420.5
+
+    def test_parse_current_lowercase_response(self):
+        crawler = CapitronBank(datetime.date.today().isoformat())
+
+        rates = crawler._parse(
+            [
+                {
+                    "curcode": "USD",
+                    "buyrate": "3569.0",
+                    "salerate": "3595.0",
+                }
+            ]
+        )
+
+        assert rates["usd"].cash.buy == 3569.0
+        assert rates["usd"].cash.sell == 3595.0
+        assert rates["usd"].noncash.buy == 3569.0
 
 
 class TestBaseCrawler:
@@ -292,6 +452,48 @@ class TestPlaywrightCrawlersExist:
 
         crawler = MBank(datetime.date.today().isoformat())
         assert crawler.BANK_NAME == "MBank"
+
+
+class TestTDBM:
+    def test_parse_html_table(self):
+        from app.crawlers import TDBM
+
+        crawler = TDBM(datetime.date.today().isoformat())
+        rates = crawler._parse_html_table("""
+            <table class="table-hover">
+                <tbody>
+                    <tr><td>Currency</td><td>Mongol Bank</td></tr>
+                    <tr><td>Buy</td><td>Sell</td></tr>
+                    <tr>
+                        <td></td><td>USD</td><td>United States Dollar</td>
+                        <td>3576.12</td><td>3569.00</td><td>3577.00</td>
+                        <td>3569.00</td><td>3594.00</td>
+                    </tr>
+                </tbody>
+            </table>
+            """)
+
+        assert rates["usd"].cash.buy == 3569.0
+        assert rates["usd"].cash.sell == 3594.0
+        assert rates["usd"].noncash.buy == 3569.0
+        assert rates["usd"].noncash.sell == 3577.0
+
+    @patch("app.crawlers.base.PlaywrightCrawler.crawl")
+    @patch("app.crawlers.tdbm.requests.get")
+    def test_crawl_falls_back_to_playwright_on_static_request_error(
+        self, mock_get, mock_playwright_crawl
+    ):
+        from app.crawlers import TDBM
+
+        mock_get.side_effect = requests.RequestException("network failed")
+        mock_playwright_crawl.return_value = {"usd": MagicMock()}
+
+        crawler = TDBM(datetime.date.today().isoformat())
+
+        assert crawler.crawl() == {
+            "usd": mock_playwright_crawl.return_value["usd"]
+        }
+        mock_playwright_crawl.assert_called_once_with()
 
 
 class TestSendMN:
@@ -431,6 +633,46 @@ class TestNaimanSharga:
         assert "eur" in rates
         assert "createdat" not in rates
         assert "updatedat" not in rates
+
+    @patch("app.crawlers.naimansharga.config")
+    @patch("app.crawlers.naimansharga.BaseCrawler.get")
+    def test_crawl_appends_date_before_firestore_query(
+        self, mock_get, mock_config
+    ):
+        today = datetime.date.today().isoformat()
+        mock_config.NSHARGA_FIRESTORE_BASE_URL = (
+            "https://firestore.googleapis.com/v1/projects/app/databases/"
+            "(default)/documents/currency_rates?key=abc123"
+        )
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "fields": {
+                "USD": {
+                    "mapValue": {
+                        "fields": {
+                            "avah": {"integerValue": "3582"},
+                            "zarah": {"stringValue": "3587"},
+                        }
+                    }
+                }
+            }
+        }
+        mock_resp.raise_for_status = MagicMock()
+        mock_get.return_value = mock_resp
+
+        from app.crawlers.naimansharga import NaimanSharga
+
+        crawler = NaimanSharga(today)
+        rates = crawler.crawl()
+
+        expected_url = (
+            "https://firestore.googleapis.com/v1/projects/app/databases/"
+            f"(default)/documents/currency_rates/{today}?key=abc123"
+        )
+        assert mock_get.call_args.args[0] == expected_url
+        assert rates["usd"].cash.buy == 3582.0
+        assert rates["usd"].cash.sell == 3587.0
 
     @patch("app.crawlers.naimansharga.BaseCrawler.get")
     def test_crawl_fallback_to_yesterday(self, mock_get):

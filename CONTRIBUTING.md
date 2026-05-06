@@ -1,6 +1,6 @@
 # Хувь Нэмэр Оруулах Заавар
 
-Энэхүү төсөлд хувь нэмэр оруулахыг хүсч байгаад баярлалаа! 🎉
+Энэхүү төсөлд хувь нэмэр оруулахыг хүсэж байгаад баярлалаа.
 
 ## Хэрхэн Хувь Нэмэр Оруулах Вэ?
 
@@ -29,8 +29,9 @@ python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 # Dependencies суулгах
-pip install -r requirements.txt
-playwright install chromium
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python -m playwright install chromium
 ```
 
 #### Branch Үүсгэх
@@ -47,7 +48,7 @@ git checkout -b feature/таны-өөрчлөлт
 1. Код бичих
 2. Test бичих (шаардлагатай бол)
 3. `pytest` ажиллуулж шалгах
-4. `black .` болон `isort .` ажиллуулах
+4. `black`, `isort`, `ruff`, `pytest` ажиллуулж шалгах
 
 #### Commit Хийх
 
@@ -74,22 +75,22 @@ GitHub дээр Pull Request нээнэ үү.
 
 ## Код Стандарт
 
-- **Python 3.8+** ашиглана
-- **Black** formatter (line-length=120)
+- **Python 3.11+** ашиглана
+- **Black** formatter (line-length=79)
 - **isort** import эрэмбэлэх
+- **ruff** lint шалгалт ажиллуулах
 - Type hints ашиглах
-- Docstring бичих (English)
-- Test бичих
+- Public API болон crawler-ийн behavior өөрчлөгдвөл test бичих
 
 ## Шинэ Банк Нэмэх
 
 Шинэ банк нэмэхийн тулд:
 
-1. `app/crawlers/http_crawlers.py` эсвэл `playwright_crawlers.py` дотор class үүсгэх
+1. `app/crawlers/<bank_name>.py` файл дотор class үүсгэх
 2. `BaseCrawler` эсвэл `PlaywrightCrawler`-аас удамших
-3. `app/crawlers/__init__.py`-д нэмэх
+3. `app/crawlers/__init__.py`-д import, `HTTP_CRAWLERS` эсвэл `PLAYWRIGHT_CRAWLERS`, `__all__` хэсэгт нэмэх
 4. `app/config.py`-д URI нэмэх
-5. Test бичих
+5. `tests/test_crawlers.py` болон шаардлагатай service/API test бичих
 
 Жишээ:
 
@@ -115,6 +116,11 @@ class NewBank(BaseCrawler):
 ```bash
 # Бүх тест
 pytest
+
+# CI lint шалгалтууд
+isort app tests scripts main.py --check-only
+black app tests scripts main.py --check
+ruff check app tests scripts main.py
 
 # Coverage-тай
 pytest --cov=app

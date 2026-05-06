@@ -16,14 +16,20 @@ class CapitronBank(BaseCrawler):
     def _parse(self, data: list) -> Dict[str, CurrencyDetail]:
         rates = {}
         for item in data:
-            code = item.get("currencyCode", "").lower()
+            code = (
+                item.get("currencyCode") or item.get("curcode") or ""
+            ).lower()
             if code:
+                buy_rate = item.get("cashBuyRate") or item.get("buyrate")
+                sell_rate = item.get("cashSellRate") or item.get("salerate")
                 rates[code] = self.make_rate(
-                    cash_buy=self.parse_float(item.get("cashBuyRate")),
-                    cash_sell=self.parse_float(item.get("cashSellRate")),
-                    noncash_buy=self.parse_float(item.get("transferBuyRate")),
+                    cash_buy=self.parse_float(buy_rate),
+                    cash_sell=self.parse_float(sell_rate),
+                    noncash_buy=self.parse_float(
+                        item.get("transferBuyRate") or buy_rate
+                    ),
                     noncash_sell=self.parse_float(
-                        item.get("transferSellRate")
+                        item.get("transferSellRate") or sell_rate
                     ),
                 )
         return rates

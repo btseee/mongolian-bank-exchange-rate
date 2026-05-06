@@ -1,9 +1,14 @@
 import datetime
+import re
+from collections import OrderedDict, deque
 from contextlib import asynccontextmanager
+from enum import Enum
+from time import monotonic
 from typing import List
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.__version__ import (
@@ -13,27 +18,17 @@ from app.__version__ import (
     __url__,
     __version__,
 )
+from app.config import config
+from app.crawlers import ALL_CRAWLERS
 from app.db import repository
 from app.db.database import get_db, init_db
 from app.models.exchange_rate import CurrencyRateResponse
 
-BANKS = [
-    "ArigBank",
-    "BogdBank",
-    "CapitronBank",
-    "CKBank",
-    "GolomtBank",
-    "KhanBank",
-    "MBank",
-    "MongolBank",
-    "NaimanSharga",
-    "NIBank",
-    "SendMN",
-    "StateBank",
-    "TDBM",
-    "TransBank",
-    "XacBank",
-]
+BANKS = [crawler.BANK_NAME for crawler in ALL_CRAWLERS]
+BankName = Enum("BankName", {bank: bank for bank in BANKS})
+DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+RATE_LIMIT_EXCLUDED_PATHS = {"/health"}
+_rate_limit_hits = OrderedDict()
 
 
 @asynccontextmanager
@@ -45,6 +40,12 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Монголын Банкуудын Валютын Ханш API",
     version=__version__,
+    description=(
+        "Монголын банк, санхүүгийн байгууллагуудын валютын ханшийг "
+        "нэг хэлбэртэй JSON бүтэцтэйгээр буцаадаг REST API. "
+        "Swagger дээр банкны нэр, огноо, pagination параметрүүдийг сонгон "
+        "турших боломжтой."
+    ),
     contact={"name": __author__, "url": __url__},
     license_info={
         "name": __license__,
@@ -65,11 +66,82 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=config.CORS_ORIGINS,
+    allow_credentials=config.CORS_ALLOW_CREDENTIALS,
     allow_methods=["GET"],
     allow_headers=["*"],
 )
+
+
+def _client_ip(request: Request) -> str:
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if config.TRUST_PROXY_HEADERS and forwarded_for:
+        return forwarded_for.split(",", maxsplit=1)[0].strip()
+    if request.client:
+        return request.client.host
+    return "unknown"
+
+
+def _rate_limit_bucket(client_key: str) -> deque:
+    client_hits = _rate_limit_hits.get(client_key)
+    if client_hits is not None:
+        _rate_limit_hits.move_to_end(client_key)
+        return client_hits
+
+    while len(_rate_limit_hits) >= config.RATE_LIMIT_MAX_CLIENTS:
+        _rate_limit_hits.popitem(last=False)
+
+    client_hits = deque()
+    _rate_limit_hits[client_key] = client_hits
+    return client_hits
+
+
+def _parse_date(value: str) -> datetime.date:
+    if not DATE_PATTERN.fullmatch(value):
+        raise HTTPException(
+            400, "Огнооны формат буруу. YYYY-MM-DD ашиглана уу"
+        )
+
+    try:
+        return datetime.date.fromisoformat(value)
+    except ValueError:
+        raise HTTPException(
+            400, "Огнооны формат буруу. YYYY-MM-DD ашиглана уу"
+        )
+
+
+@app.middleware("http")
+async def rate_limit(request: Request, call_next):
+    if (
+        not config.RATE_LIMIT_ENABLED
+        or request.url.path in RATE_LIMIT_EXCLUDED_PATHS
+    ):
+        return await call_next(request)
+
+    now = monotonic()
+    window_start = now - config.RATE_LIMIT_WINDOW_SECONDS
+    client_hits = _rate_limit_bucket(_client_ip(request))
+
+    while client_hits and client_hits[0] <= window_start:
+        client_hits.popleft()
+
+    if len(client_hits) >= config.RATE_LIMIT_REQUESTS:
+        retry_after = max(
+            1,
+            int(config.RATE_LIMIT_WINDOW_SECONDS - (now - client_hits[0])),
+        )
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded"},
+            headers={"Retry-After": str(retry_after)},
+        )
+
+    client_hits.append(now)
+    response = await call_next(request)
+    remaining = max(config.RATE_LIMIT_REQUESTS - len(client_hits), 0)
+    response.headers["X-RateLimit-Limit"] = str(config.RATE_LIMIT_REQUESTS)
+    response.headers["X-RateLimit-Remaining"] = str(remaining)
+    return response
 
 
 @app.get("/", tags=["Ерөнхий"])
@@ -111,7 +183,10 @@ def get_all_rates(
         0, ge=0, description="Алгасах өгөгдлийн тоо (pagination)"
     ),
     limit: int = Query(
-        100, ge=1, le=1000, description="Буцаах өгөгдлийн тоо (1-1000)"
+        100,
+        ge=1,
+        le=config.API_MAX_LIMIT,
+        description=f"Буцаах өгөгдлийн тоо (1-{config.API_MAX_LIMIT})",
     ),
     db: Session = Depends(get_db),
 ):
@@ -146,9 +221,14 @@ def get_latest_rates(db: Session = Depends(get_db)):
     summary="Банкаар ханш авах",
 )
 def get_rates_by_bank(
-    bank_name: str,
+    bank_name: BankName,
     skip: int = Query(0, ge=0, description="Алгасах өгөгдлийн тоо"),
-    limit: int = Query(100, ge=1, le=1000, description="Буцаах өгөгдлийн тоо"),
+    limit: int = Query(
+        100,
+        ge=1,
+        le=config.API_MAX_LIMIT,
+        description=f"Буцаах өгөгдлийн тоо (1-{config.API_MAX_LIMIT})",
+    ),
     db: Session = Depends(get_db),
 ):
     """
@@ -158,9 +238,11 @@ def get_rates_by_bank(
 
     Банкны нэрийг яг зөв бичих шаардлагатай (case-sensitive).
     """
-    rates = repository.get_rates_by_bank(db, bank_name, skip=skip, limit=limit)
+    rates = repository.get_rates_by_bank(
+        db, bank_name.value, skip=skip, limit=limit
+    )
     if not rates:
-        raise HTTPException(404, f"'{bank_name}' банкны ханш олдсонгүй")
+        raise HTTPException(404, f"'{bank_name.value}' банкны ханш олдсонгүй")
     return rates
 
 
@@ -173,7 +255,12 @@ def get_rates_by_bank(
 def get_rates_by_date(
     date: str,
     skip: int = Query(0, ge=0, description="Алгасах бичлэгийн тоо"),
-    limit: int = Query(100, ge=1, le=1000, description="Буцаах бичлэгийн тоо"),
+    limit: int = Query(
+        100,
+        ge=1,
+        le=config.API_MAX_LIMIT,
+        description=f"Буцаах бичлэгийн тоо (1-{config.API_MAX_LIMIT})",
+    ),
     db: Session = Depends(get_db),
 ):
     """
@@ -181,12 +268,7 @@ def get_rates_by_date(
 
     **date формат**: YYYY-MM-DD (жишээ: 2026-02-06)
     """
-    try:
-        date_obj = datetime.date.fromisoformat(date)
-    except ValueError:
-        raise HTTPException(
-            400, "Огнооны формат буруу. YYYY-MM-DD ашиглана уу"
-        )
+    date_obj = _parse_date(date)
 
     rates = repository.get_rates_by_date(db, date_obj, skip=skip, limit=limit)
     if not rates:
@@ -201,7 +283,7 @@ def get_rates_by_date(
     summary="Банк + өдрөөр ханш авах",
 )
 def get_rate_by_bank_and_date(
-    bank_name: str,
+    bank_name: BankName,
     date: str,
     db: Session = Depends(get_db),
 ):
@@ -213,16 +295,11 @@ def get_rate_by_bank_and_date(
 
     Зөвхөн 1 өгөгдөл буцаана.
     """
-    try:
-        date_obj = datetime.date.fromisoformat(date)
-    except ValueError:
-        raise HTTPException(
-            400, "Огнооны формат буруу. YYYY-MM-DD ашиглана уу"
-        )
+    date_obj = _parse_date(date)
 
-    rate = repository.get_rates_by_bank_and_date(db, bank_name, date_obj)
+    rate = repository.get_rates_by_bank_and_date(db, bank_name.value, date_obj)
     if not rate:
         raise HTTPException(
-            404, f"'{bank_name}' банкны '{date}' өдрийн ханш олдсонгүй"
+            404, f"'{bank_name.value}' банкны '{date}' өдрийн ханш олдсонгүй"
         )
     return rate
