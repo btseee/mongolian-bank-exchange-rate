@@ -44,6 +44,16 @@ services:
         value: "4"
       - key: PLAYWRIGHT_MAX_WORKERS
         value: "1"
+      # ScraperService.run_all() runs the HTTP and Playwright crawler
+      # groups concurrently by default - even at PLAYWRIGHT_MAX_WORKERS=1,
+      # a single Chromium instance running at the same time as the HTTP
+      # group repeatedly exceeded 512MB and got OOM-killed mid-crawl
+      # (confirmed via repeated Scheduled Crawl failures). Disabling
+      # parallelism makes every crawler run one at a time, so exactly one
+      # crawl (HTTP or Playwright) is ever in memory - slower, but the
+      # only thing that has actually stopped the OOM restarts.
+      - key: ENABLE_PARALLEL
+        value: "false"
       # Render's edge proxy is a trustworthy source for X-Forwarded-For,
       # unlike the conservative app-level default of false.
       - key: TRUST_PROXY_HEADERS

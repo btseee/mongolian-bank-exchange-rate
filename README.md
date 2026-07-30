@@ -116,6 +116,7 @@ Free Docker web service байдлаар `render.yaml`-аар deploy хийхэ�
 | `LOG_LEVEL` | `INFO` | Python logging түвшин |
 | `SSL_VERIFY` | `true` | Crawler HTTP SSL verification |
 | `MAX_WORKERS` / `PLAYWRIGHT_MAX_WORKERS` | `8` / `3` | Crawler worker тоо (Render дээр `render.yaml`-аар 4/1) |
+| `ENABLE_PARALLEL` | `true` | Crawler-уудыг зэрэгцээ ажиллуулах эсэх (Render дээр `false` - HTTP/Playwright бүлэг зэрэг ажиллах үед 512MB OOM гардаг байсныг арилгасан) |
 | `CORS_ORIGINS`, `RATE_LIMIT_*` | - | Public API хамгаалалт, `app/config.py`-д бүрэн жагсаалт |
 
 Rate limit болон admin job lock нь process-dotor memory ашигладаг тул зөвхөн нэг Uvicorn process-той deploy-д (`--workers` флаггүй) зөв ажиллана - олон replica-той production бол Redis-backed shared limiter нэмнэ.
