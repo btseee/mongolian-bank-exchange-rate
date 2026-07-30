@@ -17,10 +17,13 @@ on:
     - cron: "0 9 * * *"
   workflow_dispatch: {}
 
+permissions: {}
+
 jobs:
   trigger-crawl:
     name: Trigger and confirm daily crawl
     runs-on: ubuntu-latest
+    permissions: {}
     steps:
       - name: Trigger POST /api/admin/crawl
         run: |
