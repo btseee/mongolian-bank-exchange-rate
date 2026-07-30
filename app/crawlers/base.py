@@ -102,19 +102,36 @@ class PlaywrightCrawler(BaseCrawler):
         super().__init__(date)
         self.timeout = config.PLAYWRIGHT_TIMEOUT
 
+    # Bank pages only need to render tables/JSON, so blocking images/fonts/
+    # media cuts Chromium's memory footprint substantially - load-bearing on
+    # Render's free 512MB tier, where this runs alongside the HTTP crawler
+    # pool at the same time (see ScraperService.run_all).
+    _BLOCKED_RESOURCE_TYPES = frozenset({"image", "media", "font"})
+
     def crawl(self) -> Dict[str, CurrencyDetail]:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            browser = p.chromium.launch(
+                headless=True,
+                args=["--disable-dev-shm-usage", "--disable-gpu"],
+            )
             context = browser.new_context(
                 ignore_https_errors=not self.ssl_verify
             )
             context.set_default_timeout(self.timeout)
+            context.route("**/*", self._block_heavy_resources)
             page = context.new_page()
             try:
                 rates = self._crawl_page(page)
             finally:
                 browser.close()
         return rates
+
+    @classmethod
+    def _block_heavy_resources(cls, route) -> None:
+        if route.request.resource_type in cls._BLOCKED_RESOURCE_TYPES:
+            route.abort()
+        else:
+            route.continue_()
 
     @abstractmethod
     def _crawl_page(self, page) -> Dict[str, CurrencyDetail]:
