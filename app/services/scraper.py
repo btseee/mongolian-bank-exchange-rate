@@ -38,6 +38,7 @@ class ScraperService:
             for crawler_cls in HTTP_CRAWLERS + PLAYWRIGHT_CRAWLERS:
                 results.append(self._execute(crawler_cls))
 
+        results = self._retry_failed(results)
         self._save(results)
 
         success = len([r for r in results if r[1]])
@@ -49,6 +50,26 @@ class ScraperService:
             "failed": failed,
             "failed_banks": [r[0] for r in results if r[2]],
         }
+
+    def _retry_failed(self, results: List[Tuple]) -> List[Tuple]:
+        """One extra sequential attempt for banks that failed the first
+        pass - cheap insurance against a transient network/SSL blip
+        dropping that bank's row for the day entirely."""
+        failed_banks = [name for name, _, error in results if error]
+        if not failed_banks:
+            return results
+
+        logger.warning(
+            f"Retrying {len(failed_banks)} failed bank(s) once: "
+            f"{', '.join(failed_banks)}"
+        )
+        retried = {}
+        for bank_name in failed_banks:
+            crawler_cls = CRAWLER_MAP.get(bank_name.lower())
+            if crawler_cls:
+                retried[bank_name] = self._execute(crawler_cls)
+
+        return [retried.get(r[0], r) for r in results]
 
     def _run_group(
         self, crawler_classes: List, max_workers: int

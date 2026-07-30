@@ -72,6 +72,38 @@ class TestScraperService:
             "failed_banks": ["BrowserBank"],
         }
 
+    @patch("app.crawlers.khanbank.KhanBank.crawl")
+    def test_retry_failed_recovers_on_second_attempt(self, mock_crawl):
+        mock_crawl.return_value = {"usd": {}}
+        service = ScraperService(date="2026-01-15")
+
+        results = service._retry_failed(
+            [("KhanBank", None, Exception("transient"))]
+        )
+
+        assert results == [("KhanBank", {"usd": {}}, None)]
+        assert mock_crawl.call_count == 1
+
+    @patch("app.crawlers.khanbank.KhanBank.crawl")
+    def test_retry_failed_keeps_failure_if_still_failing(self, mock_crawl):
+        retry_error = Exception("still down")
+        mock_crawl.side_effect = retry_error
+        service = ScraperService(date="2026-01-15")
+
+        results = service._retry_failed(
+            [("KhanBank", None, Exception("transient"))]
+        )
+
+        assert results[0][0] == "KhanBank"
+        assert results[0][1] is None
+        assert results[0][2] is retry_error
+
+    def test_retry_failed_noop_when_nothing_failed(self):
+        service = ScraperService(date="2026-01-15")
+        original = [("KhanBank", {"usd": {}}, None)]
+
+        assert service._retry_failed(original) == original
+
     @patch("app.services.scraper.repository.save_rates")
     @patch("app.services.scraper.SessionLocal")
     def test_save_persists_successful_results_only(
