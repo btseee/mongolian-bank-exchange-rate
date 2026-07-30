@@ -66,14 +66,17 @@ pytest
 
 ## Release process
 
-- Every push to `main` publishes `ghcr.io/btseee/mongolian-bank-exchange-rate:edge` (plus a
-  `sha-<short>` tag) via the `publish` job in `ci.yml` — ghcr.io always reflects `main`, not just
-  tagged releases. This is separate from Render, which builds its own image straight from the
-  Dockerfile on every push (`render.yaml`'s `autoDeploy: true`) — Render never pulls from ghcr.io.
+- Every push to `main` publishes `ghcr.io/btseee/mongolian-bank-exchange-rate:v{version}` +
+  `:latest` via the `publish` job in `ci.yml`, where `{version}` is read from
+  `app/__version__.py` (not the git ref) — deliberate: the same two tags get overwritten in
+  place on every push, so no `edge`/`sha-*` images pile up between releases. A new image tag
+  only appears once `__version__.py` is actually bumped. This is separate from Render, which
+  builds its own image straight from the Dockerfile on every push (`render.yaml`'s
+  `autoDeploy: true`) — Render never pulls from ghcr.io.
 - To cut a versioned release: update `CHANGELOG.md`, bump `app/__version__.py`, then push a
-  `vX.Y.Z` tag. CI additionally publishes `latest` + semver tags to ghcr.io and creates a GitHub
-  Release (title is just `${{ github.ref_name }}`, e.g. `v1.1.0` — keep it that plain, no
-  descriptive suffix, to match every prior release).
+  `vX.Y.Z` tag matching the new version. CI publishes the new `vX.Y.Z` + `latest` images and
+  creates a GitHub Release (title is just `${{ github.ref_name }}`, e.g. `v1.1.0` — keep it that
+  plain, no descriptive suffix, to match every prior release).
 - `generate_release_notes: true` produces an empty body when there were no PRs merged (this
   repo pushes straight to `main`) — write real notes from the CHANGELOG entry and
   `gh release edit vX.Y.Z --notes-file ...` afterward if that happens.

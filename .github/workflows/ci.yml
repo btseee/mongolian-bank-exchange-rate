@@ -93,22 +93,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Every push to main publishes an `edge` image (traceable back to its
-      # commit via the sha- tag) so ghcr.io always reflects main, not just
-      # tagged releases. A vX.Y.Z tag additionally publishes `latest` and
-      # the semver tags.
+      # Tag from app/__version__.py, not the git ref, so every push to main
+      # updates the same v{version} + latest images in place - no edge/sha
+      # images pile up between releases. A new image tag only appears once
+      # __version__.py is actually bumped (i.e. a new release is cut).
+      - name: Read app version
+        id: version
+        run: |
+          version=$(grep -oP '(?<=__version__ = ")[^"]+' app/__version__.py)
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+
       - name: Extract metadata for Docker
         id: meta
         uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-            type=raw,value=edge,enable=${{ github.ref == 'refs/heads/main' }}
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=sha,prefix=sha-,format=short
+            type=raw,value=v${{ steps.version.outputs.value }}
+            type=raw,value=latest
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v7
