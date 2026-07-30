@@ -8,18 +8,18 @@ sqlalchemy==2.0.51
 psycopg[binary]==3.3.4
 
 # Configuration
-python-dotenv==1.0.1
+python-dotenv==1.2.2
 
 # Scheduling
 schedule==1.2.2
 
 # HTTP
-requests==2.32.4
+requests==2.34.2
 httpx==0.28.1
 
 # Web scraping
 playwright==1.61.0
-lxml==6.0.2
+lxml==6.1.1
 
 # Dev
 black==26.5.1
@@ -27,6 +27,6 @@ isort==5.13.2
 ruff==0.16.0
 
 # Testing
-pytest==8.4.1
-pytest-cov==6.0.0
+pytest==9.1.1
+pytest-cov==7.1.0
 httpx2==2.9.1  # starlette.testclient prefers this over httpx, avoids a deprecation warning
