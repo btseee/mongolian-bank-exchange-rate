@@ -131,7 +131,7 @@ pytest
 ## Release Гаргах
 
 1. `CHANGELOG.md`-д өөрчлөлт нэмнэ, `app/__version__.py`-г шинэчилнэ.
-2. `vX.Y.Z` tag push хийхэд CI Docker image build/push хийж GitHub Release үүсгэнэ.
+2. `main`-д push болгонд CI `ghcr.io`-руу `edge` image push хийнэ. `vX.Y.Z` tag push хийхэд нэмээд `latest`/semver tag-тай image push хийж, GitHub Release үүсгэнэ.
 
 ## Бусад
 
