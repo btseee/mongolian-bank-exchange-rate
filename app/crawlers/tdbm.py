@@ -25,11 +25,7 @@ class TDBM(PlaywrightCrawler):
         return super().crawl()
 
     def _crawl_static_page(self) -> Dict[str, CurrencyDetail]:
-        resp = requests.get(
-            config.TDBM_URI,
-            verify=self.ssl_verify,
-            timeout=config.REQUEST_TIMEOUT,
-        )
+        resp = self.get(config.TDBM_URI, timeout=config.REQUEST_TIMEOUT)
         resp.raise_for_status()
         return self._parse_html_table(resp.text)
 

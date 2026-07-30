@@ -1,45 +1,57 @@
-import datetime
-import re
+"""FastAPI application: middleware, lifespan, and router assembly.
+
+Endpoint handlers themselves live in app.api.routers.* - this module only
+wires the app together. See app.api.dependencies for the shared BankName
+enum, date parsing, and admin-key auth used across routers.
+"""
+
+import asyncio
 from collections import OrderedDict, deque
 from contextlib import asynccontextmanager
-from enum import Enum
 from time import monotonic
-from typing import List
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
+import httpx
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
 
-from app.__version__ import (
-    __author__,
-    __donation__,
-    __license__,
-    __url__,
-    __version__,
-)
+from app.__version__ import __author__, __license__, __url__, __version__
+from app.api.routers import admin, rates, system
 from app.config import config
-from app.crawlers import ALL_CRAWLERS
-from app.db import repository
-from app.db.database import get_db, init_db
-from app.models.exchange_rate import CurrencyRateResponse
+from app.db.database import init_db
+from app.utils.logger import logger
 
-BANKS = [crawler.BANK_NAME for crawler in ALL_CRAWLERS]
-BankName = Enum("BankName", {bank: bank for bank in BANKS})
-DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-RATE_LIMIT_EXCLUDED_PATHS = {"/health"}
+RATE_LIMIT_EXCLUDED_PATHS = {"/", "/redoc", "/openapi.json", "/api/health"}
 _rate_limit_hits = OrderedDict()
+
+
+async def _self_ping_loop() -> None:
+    """Keep a Render free-tier instance from idling to sleep by hitting its
+    own health check on an interval. No-op unless SELF_PING_URL is set."""
+    async with httpx.AsyncClient(timeout=10) as client:
+        while True:
+            await asyncio.sleep(config.SELF_PING_INTERVAL_SECONDS)
+            try:
+                await client.get(config.SELF_PING_URL)
+            except httpx.HTTPError as exc:
+                logger.warning(f"Self-ping failed: {exc}")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    task = None
+    if config.SELF_PING_URL:
+        task = asyncio.create_task(_self_ping_loop())
     yield
+    if task is not None:
+        task.cancel()
 
 
 app = FastAPI(
     title="Монголын Банкуудын Валютын Ханш API",
     version=__version__,
+    docs_url="/",
     description=(
         "Монголын банк, санхүүгийн байгууллагуудын валютын ханшийг "
         "нэг хэлбэртэй JSON бүтэцтэйгээр буцаадаг REST API. "
@@ -53,13 +65,14 @@ app = FastAPI(
     },
     lifespan=lifespan,
     openapi_tags=[
+        {"name": "Ерөнхий", "description": "API-н ерөнхий мэдээлэл"},
+        {"name": "Ханш", "description": "Валютын ханшийн endpoints"},
         {
-            "name": "Ерөнхий",
-            "description": "API-н ерөнхий мэдээлэл",
-        },
-        {
-            "name": "Ханш",
-            "description": "Валютын ханшийн endpoints",
+            "name": "Админ",
+            "description": (
+                "Crawl/backfill job идэвхжүүлэх endpoints "
+                "(X-Admin-Key шаардана)"
+            ),
         },
     ],
 )
@@ -68,7 +81,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=config.CORS_ORIGINS,
     allow_credentials=config.CORS_ALLOW_CREDENTIALS,
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -94,20 +107,6 @@ def _rate_limit_bucket(client_key: str) -> deque:
     client_hits = deque()
     _rate_limit_hits[client_key] = client_hits
     return client_hits
-
-
-def _parse_date(value: str) -> datetime.date:
-    if not DATE_PATTERN.fullmatch(value):
-        raise HTTPException(
-            400, "Огнооны формат буруу. YYYY-MM-DD ашиглана уу"
-        )
-
-    try:
-        return datetime.date.fromisoformat(value)
-    except ValueError:
-        raise HTTPException(
-            400, "Огнооны формат буруу. YYYY-MM-DD ашиглана уу"
-        )
 
 
 @app.middleware("http")
@@ -144,162 +143,6 @@ async def rate_limit(request: Request, call_next):
     return response
 
 
-@app.get("/", tags=["Ерөнхий"])
-def root():
-    """API-н ерөнхий мэдээлэл, дэмждэг банкууд, endpoints."""
-    return {
-        "name": "Монголын Банкуудын Валютын Ханш API",
-        "version": __version__,
-        "documentation": "/docs",
-        "github": __url__,
-        "donation": __donation__,
-        "supported_banks": BANKS,
-        "endpoints": {
-            "/rates": "Бүх ханш (pagination-тай)",
-            "/rates/latest": "Банк бүрийн хамгийн сүүлийн ханш",
-            "/rates/bank/{bank_name}": "Тодорхой банкны ханш",
-            "/rates/date/{date}": "Тодорхой өдрийн бүх банкны ханш",
-            "/rates/bank/{bank_name}/date/{date}": "Банк + өдрөөр ханш",
-            "/health": "API health check",
-        },
-        "example_currencies": ["usd", "eur", "cny", "rub", "jpy"],
-    }
-
-
-@app.get("/health", tags=["Ерөнхий"])
-def health():
-    """API health check - monitoring-д ашиглана."""
-    return {"status": "healthy", "version": __version__}
-
-
-@app.get(
-    "/rates",
-    response_model=List[CurrencyRateResponse],
-    tags=["Ханш"],
-    summary="Бүх ханш авах",
-)
-def get_all_rates(
-    skip: int = Query(
-        0, ge=0, description="Алгасах өгөгдлийн тоо (pagination)"
-    ),
-    limit: int = Query(
-        100,
-        ge=1,
-        le=config.API_MAX_LIMIT,
-        description=f"Буцаах өгөгдлийн тоо (1-{config.API_MAX_LIMIT})",
-    ),
-    db: Session = Depends(get_db),
-):
-    """
-    Бүх банкны бүх ханшийг авах (pagination-тай).
-
-    - **skip**: Эхнээс хэдийг алгасах (default: 0)
-    - **limit**: Хэдэн бичлэг буцаах (default: 100, max: 1000)
-    """
-    return repository.get_all_rates(db, skip=skip, limit=limit)
-
-
-@app.get(
-    "/rates/latest",
-    response_model=List[CurrencyRateResponse],
-    tags=["Ханш"],
-    summary="Хамгийн сүүлийн ханш",
-)
-def get_latest_rates(db: Session = Depends(get_db)):
-    """
-    Банк бүрийн хамгийн сүүлд бүртгэгдсэн ханшийг буцаана.
-
-    Энэ endpoint нь банк бүрээс зөвхөн 1 өгөгдөл буцаана (нийт 13).
-    """
-    return repository.get_latest_rates(db)
-
-
-@app.get(
-    "/rates/bank/{bank_name}",
-    response_model=List[CurrencyRateResponse],
-    tags=["Ханш"],
-    summary="Банкаар ханш авах",
-)
-def get_rates_by_bank(
-    bank_name: BankName,
-    skip: int = Query(0, ge=0, description="Алгасах өгөгдлийн тоо"),
-    limit: int = Query(
-        100,
-        ge=1,
-        le=config.API_MAX_LIMIT,
-        description=f"Буцаах өгөгдлийн тоо (1-{config.API_MAX_LIMIT})",
-    ),
-    db: Session = Depends(get_db),
-):
-    """
-    Тодорхой банкны бүх ханшийг авах.
-
-    **bank_name жишээ**: KhanBank, GolomtBank, TDBM, XacBank
-
-    Банкны нэрийг яг зөв бичих шаардлагатай (case-sensitive).
-    """
-    rates = repository.get_rates_by_bank(
-        db, bank_name.value, skip=skip, limit=limit
-    )
-    if not rates:
-        raise HTTPException(404, f"'{bank_name.value}' банкны ханш олдсонгүй")
-    return rates
-
-
-@app.get(
-    "/rates/date/{date}",
-    response_model=List[CurrencyRateResponse],
-    tags=["Ханш"],
-    summary="Өдрөөр ханш авах",
-)
-def get_rates_by_date(
-    date: str,
-    skip: int = Query(0, ge=0, description="Алгасах бичлэгийн тоо"),
-    limit: int = Query(
-        100,
-        ge=1,
-        le=config.API_MAX_LIMIT,
-        description=f"Буцаах бичлэгийн тоо (1-{config.API_MAX_LIMIT})",
-    ),
-    db: Session = Depends(get_db),
-):
-    """
-    Тодорхой өдрийн бүх банкны ханшийг авах.
-
-    **date формат**: YYYY-MM-DD (жишээ: 2026-02-06)
-    """
-    date_obj = _parse_date(date)
-
-    rates = repository.get_rates_by_date(db, date_obj, skip=skip, limit=limit)
-    if not rates:
-        raise HTTPException(404, f"'{date}' өдрийн ханш олдсонгүй")
-    return rates
-
-
-@app.get(
-    "/rates/bank/{bank_name}/date/{date}",
-    response_model=CurrencyRateResponse,
-    tags=["Ханш"],
-    summary="Банк + өдрөөр ханш авах",
-)
-def get_rate_by_bank_and_date(
-    bank_name: BankName,
-    date: str,
-    db: Session = Depends(get_db),
-):
-    """
-    Тодорхой банкны тодорхой өдрийн ханшийг авах.
-
-    - **bank_name**: Банкны нэр (жишээ: KhanBank)
-    - **date**: Огноо YYYY-MM-DD форматаар
-
-    Зөвхөн 1 өгөгдөл буцаана.
-    """
-    date_obj = _parse_date(date)
-
-    rate = repository.get_rates_by_bank_and_date(db, bank_name.value, date_obj)
-    if not rate:
-        raise HTTPException(
-            404, f"'{bank_name.value}' банкны '{date}' өдрийн ханш олдсонгүй"
-        )
-    return rate
+app.include_router(system.router)
+app.include_router(rates.router)
+app.include_router(admin.router)

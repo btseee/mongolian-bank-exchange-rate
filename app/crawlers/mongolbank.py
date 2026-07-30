@@ -20,22 +20,27 @@ class MongolBank(BaseCrawler):
             return self._parse(resp.text)
 
     def _parse_json(self, payload: dict) -> Dict[str, CurrencyDetail]:
+        rows = payload.get("data", [])
+        row = next((r for r in rows if r.get("RATE_DATE") == self.date), None)
+        if row is None:
+            # MongolBank sometimes hasn't published today's rate yet at
+            # crawl time - the response is already sorted most-recent
+            # first, so fall back to that rather than returning nothing.
+            row = rows[0] if rows else None
+        if row is None:
+            return {}
+
         rates = {}
-        for row in payload.get("data", []):
-            if row.get("RATE_DATE") != self.date:
+        for code, value in row.items():
+            if code == "RATE_DATE" or len(code) != 3:
                 continue
 
-            for code, value in row.items():
-                if code == "RATE_DATE" or len(code) != 3:
-                    continue
-
-                rate = self.parse_float(value)
-                if rate is not None:
-                    rates[code.lower()] = self.make_rate(
-                        noncash_buy=rate,
-                        noncash_sell=rate,
-                    )
-            break
+            rate = self.parse_float(value)
+            if rate is not None:
+                rates[code.lower()] = self.make_rate(
+                    noncash_buy=rate,
+                    noncash_sell=rate,
+                )
         return rates
 
     def _parse(self, xml_text: str) -> Dict[str, CurrencyDetail]:

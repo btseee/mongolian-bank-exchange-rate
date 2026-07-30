@@ -13,7 +13,10 @@ class TransBank(PlaywrightCrawler):
 
     def _crawl_page(self, page) -> Dict[str, CurrencyDetail]:
         url = f"{config.TRANSBANK_URI}?startdate={self.date}"
-        page.goto(url, timeout=self.timeout, wait_until="networkidle")
+        # This site keeps background network activity going indefinitely
+        # (analytics/polling), so "networkidle" reliably times out even
+        # though the page itself renders in well under PLAYWRIGHT_TIMEOUT.
+        page.goto(url, timeout=self.timeout, wait_until="domcontentloaded")
         page.wait_for_selector("table", timeout=self.timeout)
 
         script = page.locator("script#__NEXT_DATA__").first

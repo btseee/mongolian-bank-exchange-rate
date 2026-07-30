@@ -1,190 +1,138 @@
 # Монголын Банкуудын Валютын Ханш API
 
-Монголын 15 банк болон санхүүгийн байгууллагын валютын ханшийг цуглуулж, өгөгдлийн санд хадгалаад FastAPI REST API-аар түгээдэг open source төсөл.
+Монголын 15 банк, санхүүгийн байгууллагын валютын ханшийг цуглуулж, хадгалаад FastAPI REST API-аар түгээдэг open source төсөл.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.14+](https://img.shields.io/badge/python-3.14+-blue.svg)](https://www.python.org/downloads/)
 
-## Юу Хийдэг Вэ?
+## Хурдан Эхлэх
 
-1. Банк, санхүүгийн байгууллагуудын ханшийг HTTP болон Playwright crawler-уудаар зэрэгцээ татна.
-2. Валютын ханшийг нэг JSON бүтэцтэй болгож өгөгдлийн санд хадгална.
-3. REST API-аар хамгийн сүүлийн, банкны, өдрийн болон түүхэн ханшийг буцаана.
-4. `scripts/cron.py` өдөр бүр автоматаар crawler ажиллуулна.
-5. `scripts/backfill.py` өмнөх огнооны ханшийг нөхөж татна.
-6. Docker Compose нь API, scheduler worker, PostgreSQL-г хамтад нь ажиллуулна.
-
-## Хурдан Эхлэх: Local
+**Local:**
 
 ```bash
 git clone https://github.com/btseee/mongolian-bank-exchange-rate.git
 cd mongolian-bank-exchange-rate
-
-python -m venv .venv
-.venv\Scripts\activate
-python -m pip install --upgrade pip
+python -m venv .venv && .venv\Scripts\activate   # Linux/macOS: source .venv/bin/activate
 python -m pip install -r requirements.txt
 python -m playwright install chromium
 
+python main.py                                   # анхны өгөгдөл татах
 python -m uvicorn app.api.api:app --reload
 ```
 
-Linux/macOS дээр virtual environment идэвхжүүлэх команд:
-
-```bash
-source .venv/bin/activate
-```
-
-API: [http://localhost:8000](http://localhost:8000)  
-Swagger docs: [http://localhost:8000/docs](http://localhost:8000/docs)
-
-Анхны өгөгдөл татах:
-
-```bash
-python main.py
-```
-
-## Хурдан Эхлэх: Docker
-
-`.env` файл заавал хэрэггүй. Default тохиргоогоор API, cron worker, PostgreSQL хамт асна.
+**Docker** (`.env` заавал биш - default тохиргоогоор API, cron worker, PostgreSQL хамт асна):
 
 ```bash
 docker compose up --build
 ```
 
-API: [http://localhost:8000](http://localhost:8000)  
-Swagger docs: [http://localhost:8000/docs](http://localhost:8000/docs)
-
-Өөр тохиргоо хэрэгтэй бол `.env.example`-ийг `.env` болгож хуулж утгуудыг өөрчилнө. Docker Compose `.env` файлыг автоматаар уншиж default утгуудыг дарна.
+Хоёуланд нь: Swagger docs болон API [http://localhost:8000](http://localhost:8000) дээр (docs нь root дээр).
 
 ## Төслийн Бүтэц
 
 | Зам | Үүрэг |
 | --- | --- |
-| `app/api/api.py` | FastAPI app, Swagger metadata, API rate limit, endpoint-ууд |
-| `app/crawlers/` | Банк бүрийн crawler. HTTP болон Playwright crawler гэж хуваагдана |
-| `app/services/scraper.py` | Crawler-уудыг зэрэгцээ ажиллуулж үр дүнг хадгална |
-| `app/db/` | SQLAlchemy session, repository query/upsert логик |
-| `app/models/` | Database model болон API response model |
-| `scripts/cron.py` | Өдөр тутмын scheduler worker |
-| `scripts/backfill.py` | Огнооны интервалаар ханш нөхөж татах script |
-| `tests/` | API, crawler, service test-үүд |
+| `app/api/` | FastAPI app, middleware, router-ууд (`system`, `rates`, `admin`), auth/date dependencies |
+| `app/crawlers/` | Банк бүрийн HTTP/Playwright crawler |
+| `app/services/` | Crawler-уудыг зэрэгцээ ажиллуулах, admin job lock/төлөв |
+| `app/db/`, `app/models/` | SQLAlchemy session, repository upsert, DB/API model-ууд |
+| `scripts/cron.py`, `scripts/backfill.py` | Always-on scheduler worker, огноо нөхөж татах script |
+| `render.yaml` | Render.com Docker web service Blueprint |
 
 ## API Endpoint-ууд
 
-Swagger UI дээр банкны нэрийг selectable enum байдлаар сонгож болно.
+Swagger UI **`/`** дээр. Бодит endpoint бүгд **`/api/`** prefix-тэй.
 
 | Endpoint | Тайлбар |
 | --- | --- |
-| `GET /` | API мэдээлэл, дэмждэг банкууд |
-| `GET /health` | Health check |
-| `GET /rates?skip=0&limit=100` | Бүх ханш, pagination-тэй |
-| `GET /rates/latest` | Банк бүрийн хамгийн сүүлийн ханш |
-| `GET /rates/bank/{bank_name}` | Сонгосон банкны ханш |
-| `GET /rates/date/{date}` | Сонгосон өдрийн бүх ханш |
-| `GET /rates/bank/{bank_name}/date/{date}` | Банк ба өдрөөр нэг бичлэг авах |
-
-Жишээ:
+| `GET /api/info` | API мэдээлэл, дэмждэг банкууд |
+| `GET /api/health` | Health check |
+| `GET /api/rates?skip=0&limit=100` | Бүх ханш, pagination-тэй |
+| `GET /api/rates/latest` | Банк бүрийн хамгийн сүүлийн ханш |
+| `GET /api/rates/bank/{bank_name}` | Сонгосон банкны ханш |
+| `GET /api/rates/date/{date}` | Сонгосон өдрийн бүх ханш |
+| `GET /api/rates/bank/{bank_name}/date/{date}` | Банк ба өдрөөр нэг бичлэг |
+| `POST /api/admin/crawl` | Бүх банкнаас нэн даруй татаж эхлүүлэх (background, `X-Admin-Key`) |
+| `POST /api/admin/crawl/{bank_name}` | Ганц банкыг синхроноор татах (`X-Admin-Key`) |
+| `POST /api/admin/backfill` | Огнооны интервалаар татаж эхлүүлэх (background, `X-Admin-Key`) |
+| `GET /api/admin/status` | Job-ын явц/сүүлийн үр дүн (`X-Admin-Key`) |
 
 ```bash
-curl "http://localhost:8000/rates/bank/KhanBank?limit=10"
-curl "http://localhost:8000/rates/date/2026-05-06"
+curl "http://localhost:8000/api/rates/bank/KhanBank?limit=10"
+
+curl -X POST "http://localhost:8000/api/admin/crawl" -H "X-Admin-Key: $ADMIN_API_KEY"
+curl "http://localhost:8000/api/admin/status" -H "X-Admin-Key: $ADMIN_API_KEY"
+curl -X POST "http://localhost:8000/api/admin/backfill" \
+  -H "X-Admin-Key: $ADMIN_API_KEY" -H "Content-Type: application/json" \
+  -d '{"start": "2026-01-01", "end": "2026-01-31"}'
 ```
+
+`ADMIN_API_KEY` тохируулаагүй бол admin endpoint бүгд `503`. Буруу/байхгүй header → `401`. Job аль хэдийн ажиллаж байвал → `409` (нэг дор нэг л job).
 
 ## Дэмжигдсэн Банкууд
 
-| Банк / Байгууллага | Код | Төрөл |
-| --- | --- | --- |
-| Хаан Банк | `KhanBank` | HTTP |
-| Голомт Банк | `GolomtBank` | HTTP |
-| Хас Банк | `XacBank` | HTTP |
-| Ариг Банк | `ArigBank` | HTTP |
-| Төрийн Банк | `StateBank` | HTTP |
-| Монгол Банк | `MongolBank` | HTTP |
-| Капитрон Банк | `CapitronBank` | HTTP |
-| Найман Шарга | `NaimanSharga` | HTTP |
-| SendMN | `SendMN` | HTTP |
-| ХХБ | `TDBM` | Playwright |
-| Богд Банк | `BogdBank` | Playwright |
-| Чингис Хаан Банк | `CKBank` | Playwright |
-| ҮХОБ | `NIBank` | Playwright |
-| Транс Банк | `TransBank` | Playwright |
-| М Банк | `MBank` | Playwright |
+| Банк | Код | Төрөл | Банк | Код | Төрөл |
+| --- | --- | --- | --- | --- | --- |
+| Хаан Банк | `KhanBank` | HTTP | Найман Шарга | `NaimanSharga` | HTTP |
+| Голомт Банк | `GolomtBank` | HTTP | SendMN | `SendMN` | HTTP |
+| Хас Банк | `XacBank` | HTTP | М Банк | `MBank` | HTTP |
+| Ариг Банк | `ArigBank` | HTTP | ХХБ | `TDBM` | Playwright |
+| Төрийн Банк | `StateBank` | HTTP | Богд Банк | `BogdBank` | Playwright |
+| Монгол Банк | `MongolBank` | HTTP | Чингис Хаан Банк | `CKBank` | Playwright |
+| Капитрон Банк | `CapitronBank` | HTTP | ҮХОБ | `NIBank` | Playwright |
+| | | | Транс Банк | `TransBank` | Playwright |
 
 ## Cron Ба Backfill
 
-Өдөр бүр ажиллуулах worker:
+Always-on орчинд (локал, VPS, Docker Compose):
 
 ```bash
-python -m scripts.cron
-```
-
-Default `CRON_SCHEDULE=0 9 * * *`, өөрөөр хэлбэл server/container-ийн local time-аар 09:00 цагт ажиллана. Одоогоор өдөр тутмын `M H * * *` хэлбэрийн cron expression дэмжинэ.
-
-Өгөгдөл нөхөж татах:
-
-```bash
-python -m scripts.backfill
-python -m scripts.backfill 2026-01-01
+python -m scripts.cron                    # CRON_SCHEDULE (default 09:00) цагт өдөр бүр
 python -m scripts.backfill 2026-01-01 2026-01-31
 ```
 
+Render зэрэг always-on worker дэмждэггүй free-tier орчинд эдгээрийг дээрх admin endpoint-ээр HTTP-аар дуудна. Аль ч аргаар ч өдөр бүрийн хооронд `BACKFILL_DELAY_SECONDS` (default 2 сек) азнаж банкны сайтуудыг rapid биш дуудна.
+
+## Render Дээр Deploy Хийх
+
+Free Docker web service байдлаар `render.yaml`-аар deploy хийхэд бэлэн.
+
+1. GitHub repo-г Render dashboard дээр холбож "New Blueprint" → `render.yaml`.
+2. Dashboard дээр гараар тохируулах: `ADMIN_API_KEY` (`openssl rand -hex 32`), `ARIGBANK_BEARER_TOKEN` (заавал биш).
+3. **Чухал**: Free web service-д persistent disk байхгүй тул default SQLite нь restart болгонд хоослогдоно. Байнгын хадгалалт хэрэгтэй бол Neon/Supabase Postgres үүсгэж, `DATABASE_URL`-г Render dashboard дээр connection string болгож тохируулна (`render.yaml`-д зориудаар тодорхойлогдоогүй).
+4. Sleep-ээс сэргийлэхийн тулд `SELF_PING_URL`-г өөрийн Render URL + `/api/health` болгож тохируулж болно (жишээ нь `https://mongolian-bank-exchange-rate-hm3t.onrender.com/api/health`) - энэ нь Render-ийн 750 цагийн сарын instance-hour квотыг бүрэн ашиглана гэдгийг анхаараарай.
+5. GitHub Actions daily crawl-ыг ажиллуулахын тулд repo Settings → Secrets/Variables → Actions дээр secret `ADMIN_API_KEY` болон variable `RENDER_APP_URL` тохируулна (`.github/workflows/scheduled-crawl.yml` үзнэ үү).
+
 ## Тохиргоо
+
+Бүх хувьсагч заавал биш - `.env.example` дэх default-ууд ажиллахад хангалттай. Бүрэн жагсаалт: `app/config.py`.
 
 | Хувьсагч | Default | Тайлбар |
 | --- | --- | --- |
-| `DATABASE_URL` | `sqlite:///./exchange_rates.db` | Local database URL. Docker Compose default нь PostgreSQL ашиглана |
-| `CRON_SCHEDULE` | `0 9 * * *` | Daily scheduler цаг |
-| `SSL_VERIFY` | `false` | Crawler HTTP SSL verification |
-| `REQUEST_TIMEOUT` | `30` | HTTP request timeout секундээр |
-| `PLAYWRIGHT_TIMEOUT` | `60000` | Playwright timeout миллисекундээр |
-| `ENABLE_PARALLEL` | `true` | Crawler-уудыг зэрэгцээ ажиллуулах эсэх |
-| `MAX_WORKERS` | `8` | HTTP crawler worker тоо |
-| `PLAYWRIGHT_MAX_WORKERS` | `3` | Playwright crawler worker тоо |
-| `API_MAX_LIMIT` | `100` | Pagination `limit`-ийн дээд хэмжээ |
-| `CORS_ORIGINS` | `*` | Зөвшөөрөх origin-ууд, comma-separated |
-| `CORS_ALLOW_CREDENTIALS` | `false` | CORS credential зөвшөөрөх эсэх |
-| `TRUST_PROXY_HEADERS` | `false` | Heroku/reverse proxy ард ажиллах үед `X-Forwarded-For`-г client IP гэж үзэх эсэх |
-| `RATE_LIMIT_ENABLED` | `true` | API rate limit асаах эсэх |
-| `RATE_LIMIT_REQUESTS` | `60` | Нэг client-ийн window доторх request тоо |
-| `RATE_LIMIT_WINDOW_SECONDS` | `60` | Rate limit window секундээр |
-| `RATE_LIMIT_MAX_CLIENTS` | `10000` | Memory-д хадгалах rate-limit client bucket-ийн дээд тоо |
+| `DATABASE_URL` | SQLite | Render дээр гараар Postgres руу солино ("Render Дээр Deploy Хийх" үзнэ үү) |
+| `ADMIN_API_KEY` | (хоосон) | `/api/admin/*`-г хамгаалах secret. Хоосон бол 503 |
+| `SELF_PING_URL` | (хоосон) | Тохируулбал `SELF_PING_INTERVAL_SECONDS`-ийн зайтай өөрийгөө ping хийж Render-ийг сэрүүн байлгана |
+| `BACKFILL_DELAY_SECONDS` | `2` | Backfill-ийн өдөр бүрийн хоорондох азналт |
+| `LOG_LEVEL` | `INFO` | Python logging түвшин |
+| `SSL_VERIFY` | `true` | Crawler HTTP SSL verification |
+| `MAX_WORKERS` / `PLAYWRIGHT_MAX_WORKERS` | `8` / `3` | Crawler worker тоо (Render дээр `render.yaml`-аар 4/1) |
+| `CORS_ORIGINS`, `RATE_LIMIT_*` | - | Public API хамгаалалт, `app/config.py`-д бүрэн жагсаалт |
 
-Rate limit нь application process дотор memory ашигладаг тул олон dyno, replica, эсвэл олон worker-тэй production орчинд global limit болохгүй. Strict production хамгаалалт хэрэгтэй бол Heroku router/CDN/reverse proxy/Redis-backed limiter зэрэг shared түвшний хамгаалалт нэмнэ. `TRUST_PROXY_HEADERS=true`-г зөвхөн client-ийн `X-Forwarded-For` header-ийг proxy өөрөө strip/overwrite хийдэг найдвартай proxy-ийн ард ажиллах үед асаана.
+Rate limit болон admin job lock нь process-dotor memory ашигладаг тул зөвхөн нэг Uvicorn process-той deploy-д (`--workers` флаггүй) зөв ажиллана - олон replica-той production бол Redis-backed shared limiter нэмнэ.
 
 ## Хөгжүүлэгчийн Шалгалт
 
 ```bash
-isort app tests scripts main.py --check-only
-black app tests scripts main.py --check
+isort app tests scripts main.py --check-only && black app tests scripts main.py --check
 ruff check app tests scripts main.py
 pytest
 ```
 
-Автоматаар засах:
-
-```bash
-isort app tests scripts main.py
-black app tests scripts main.py
-```
-
 ## Release Гаргах
 
-1. `CHANGELOG.md`-д хэрэглэгчид ойлгомжтой өөрчлөлтийн тайлбар нэмнэ.
-2. Version-ийг `app/__version__.py` дээр шинэчилнэ.
-3. `vX.Y.Z` tag push хийхэд CI Docker image build/push хийж GitHub Release үүсгэнэ.
-4. Release title нь tag-аар нэрлэгдэж, auto-generated notes нь label-уудаар ангилагдана.
+1. `CHANGELOG.md`-д өөрчлөлт нэмнэ, `app/__version__.py`-г шинэчилнэ.
+2. `vX.Y.Z` tag push хийхэд CI Docker image build/push хийж GitHub Release үүсгэнэ.
 
-## Хувь Нэмэр Оруулах
+## Бусад
 
-[CONTRIBUTING.md](CONTRIBUTING.md) файлыг уншина уу. Issue template, pull request template, security policy, code of conduct бүгд repository-д багтсан.
-
-## Лиценз
-
-MIT License - [LICENSE.md](LICENSE.md)
-
-## Холбогдох
-
-- GitHub: [@btseee](https://github.com/btseee)
-- Email: [bbattseren88@gmail.com](mailto:bbattseren88@gmail.com)
-- Дэмжих: [Buy Me a Coffee](https://buymeacoffee.com/btseee)
+[CONTRIBUTING.md](CONTRIBUTING.md) · [LICENSE.md](LICENSE.md) (MIT) · [@btseee](https://github.com/btseee) · [bbattseren88@gmail.com](mailto:bbattseren88@gmail.com) · [Buy Me a Coffee](https://buymeacoffee.com/btseee)

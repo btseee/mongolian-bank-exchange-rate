@@ -8,8 +8,10 @@ Usage:
 """
 
 import sys
+import time
 from datetime import date, timedelta
 
+from app.config import config
 from app.db.database import init_db
 from app.services.scraper import ScraperService
 from app.utils.logger import logger
@@ -31,22 +33,37 @@ def parse_date_args(args: list[str]) -> tuple[date, date]:
     return start, end
 
 
-def backfill(start: date, end: date):
+def backfill(start: date, end: date) -> dict:
     total = (end - start).days + 1
     logger.info(f"Backfill: {start} to {end} ({total} days)")
 
     current = start
     count = 0
+    succeeded = 0
+    failed = 0
+    failed_banks: set[str] = set()
     while current <= end:
         count += 1
         logger.info(f"[{count}/{total}] {current}")
         try:
-            ScraperService(date=current.isoformat()).run_all()
+            result = ScraperService(date=current.isoformat()).run_all()
+            succeeded += result["succeeded"]
+            failed += result["failed"]
+            failed_banks.update(result["failed_banks"])
         except Exception as e:
             logger.error(f"Failed {current}: {e}")
+
         current += timedelta(days=1)
+        if current <= end and config.BACKFILL_DELAY_SECONDS:
+            time.sleep(config.BACKFILL_DELAY_SECONDS)
 
     logger.info(f"Backfill done: {count} days")
+    return {
+        "days_processed": count,
+        "succeeded": succeeded,
+        "failed": failed,
+        "failed_banks": sorted(failed_banks),
+    }
 
 
 def main():

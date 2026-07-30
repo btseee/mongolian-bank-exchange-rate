@@ -1,0 +1,50 @@
+# Render Blueprint - https://render.com/docs/blueprint-spec
+#
+# Deploys the API as a single free Docker web service. Render's free tier
+# has no persistent disk and no free background-worker/cron process type,
+# so:
+#   - DATABASE_URL is intentionally left unset below -> the app falls back
+#     to local SQLite, which is wiped on every deploy/restart. For real
+#     persistence, set DATABASE_URL manually in the Render dashboard to an
+#     external Postgres connection string (e.g. a free Neon or Supabase
+#     instance) - see README.md's "Deploying to Render" section.
+#   - Daily crawls and backfills run via POST /api/admin/crawl and
+#     POST /api/admin/backfill instead of an always-on scheduler process.
+#     See .github/workflows/scheduled-crawl.yml for the external trigger.
+#
+# Only secrets and values that genuinely differ from app/config.py's own
+# defaults are listed here - everything else already has a sensible
+# default in code, and duplicating it here would just be another place
+# for the two to drift apart. The full env var reference lives in
+# .env.example and README.md.
+services:
+  - type: web
+    name: mongolian-bank-exchange-rate
+    env: docker
+    plan: free
+    region: singapore
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      # Secrets - set manually in Render's dashboard after first deploy.
+      - key: ADMIN_API_KEY
+        sync: false
+      # Optional performance hint for ArigBank - the crawler already signs
+      # in fresh when this is unset, so leaving it blank forever is fine.
+      - key: ARIGBANK_BEARER_TOKEN
+        sync: false
+      # Free tier is 512MB RAM / 0.1 CPU. app/config.py's own defaults
+      # (MAX_WORKERS=8, PLAYWRIGHT_MAX_WORKERS=3) assume more headroom
+      # than that - running 3 concurrent headless Chromium instances risks
+      # an OOM kill, so both are turned down here for this plan only.
+      - key: MAX_WORKERS
+        value: "4"
+      - key: PLAYWRIGHT_MAX_WORKERS
+        value: "1"
+      # Render's edge proxy is a trustworthy source for X-Forwarded-For,
+      # unlike the conservative app-level default of false.
+      - key: TRUST_PROXY_HEADERS
+        value: "true"

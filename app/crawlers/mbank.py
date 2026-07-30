@@ -1,7 +1,5 @@
 from typing import Dict
 
-import requests
-
 from app.config import config
 from app.crawlers.base import BaseCrawler
 from app.models.exchange_rate import CurrencyDetail
@@ -21,17 +19,16 @@ class MBank(BaseCrawler):
     }
 
     def crawl(self) -> Dict[str, CurrencyDetail]:
-        session = requests.Session()
-        session.verify = self.ssl_verify
+        self.session.verify = self.ssl_verify
 
-        login_resp = session.post(
+        login_resp = self.session.post(
             f"{config.MBANK_URI}api/login",
             headers=self.HEADERS,
             timeout=self.timeout,
         )
         login_resp.raise_for_status()
 
-        resp = session.get(
+        resp = self.session.get(
             f"{config.MBANK_URI}api",
             params={"name": "getCurrencyList"},
             headers=self.HEADERS,

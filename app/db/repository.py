@@ -2,6 +2,7 @@ from datetime import date, datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy import func
+from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.orm import Session
 
 from app.models.currency import CurrencyRate
@@ -9,31 +10,32 @@ from app.models.exchange_rate import ExchangeRate
 
 
 def save_rates(db: Session, data: ExchangeRate) -> CurrencyRate:
-    """Save or update exchange rates (upsert)."""
+    """Save or update exchange rates (atomic upsert on bank_name+date)."""
     rate_date = date.fromisoformat(data.date)
-    existing = (
-        db.query(CurrencyRate)
-        .filter(
-            CurrencyRate.bank_name == data.bank,
-            CurrencyRate.date == rate_date,
-        )
-        .first()
-    )
+    rates_json = data.model_dump()["rates"]
+    now = datetime.now(timezone.utc)
 
-    if existing:
-        existing.rates = data.model_dump()["rates"]
-        existing.timestamp = datetime.now(timezone.utc)
-    else:
-        existing = CurrencyRate(
+    dialect_insert = (
+        postgresql.insert
+        if db.get_bind().dialect.name == "postgresql"
+        else sqlite.insert
+    )
+    stmt = (
+        dialect_insert(CurrencyRate)
+        .values(
             bank_name=data.bank,
             date=rate_date,
-            rates=data.model_dump()["rates"],
+            rates=rates_json,
+            timestamp=now,
         )
-        db.add(existing)
-
+        .on_conflict_do_update(
+            index_elements=[CurrencyRate.bank_name, CurrencyRate.date],
+            set_={"rates": rates_json, "timestamp": now},
+        )
+    )
+    db.execute(stmt)
     db.commit()
-    db.refresh(existing)
-    return existing
+    return get_rates_by_bank_and_date(db, data.bank, rate_date)
 
 
 def get_all_rates(

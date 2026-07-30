@@ -1,5 +1,5 @@
 # Mongolian bank exchange-rate API - Docker image
-FROM python:3.13-slim AS base
+FROM python:3.14-slim AS base
 
 WORKDIR /app
 
@@ -34,7 +34,7 @@ USER appuser
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD ["python", "-c", "import requests; requests.get('http://localhost:8000/health', timeout=5)"]
+    CMD ["python", "-c", "import requests; requests.get('http://localhost:8000/api/health', timeout=5)"]
 
 CMD ["sh", "-c", "uvicorn app.api.api:app --host 0.0.0.0 --port $PORT"]
 

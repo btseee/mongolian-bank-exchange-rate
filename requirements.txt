@@ -1,30 +1,32 @@
 # Web Framework
-fastapi>=0.104.0
-uvicorn[standard]>=0.24.0
+fastapi==0.136.3
+uvicorn[standard]==0.48.0
+pydantic==2.13.4
 
 # Database
-sqlalchemy>=2.0.0
-psycopg2-binary>=2.9.0
+sqlalchemy==2.0.51
+psycopg[binary]==3.3.4
 
 # Configuration
-python-dotenv>=1.0.0
+python-dotenv==1.0.1
 
 # Scheduling
-schedule>=1.2.0
+schedule==1.2.2
 
 # HTTP
-requests>=2.32.0
+requests==2.32.4
+httpx==0.28.1
 
 # Web scraping
-playwright>=1.40.0
-lxml>=5.2.0
+playwright==1.61.0
+lxml==6.0.2
 
 # Dev
-black>=24.3.0
-isort>=5.12.0
-Pygments>=2.15.0
+black==26.5.1
+isort==5.13.2
+ruff==0.16.0
 
 # Testing
-pytest>=7.4.4
-pytest-cov>=4.1.0
-httpx>=0.25.0
+pytest==8.4.1
+pytest-cov==6.0.0
+httpx2==2.9.1  # starlette.testclient prefers this over httpx, avoids a deprecation warning

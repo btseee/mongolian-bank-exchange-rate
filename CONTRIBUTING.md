@@ -75,7 +75,7 @@ GitHub дээр Pull Request нээнэ үү.
 
 ## Код Стандарт
 
-- **Python 3.11+** ашиглана
+- **Python 3.14+** ашиглана
 - **Black** formatter (line-length=79)
 - **isort** import эрэмбэлэх
 - **ruff** lint шалгалт ажиллуулах

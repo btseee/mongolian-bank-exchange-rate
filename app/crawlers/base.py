@@ -4,6 +4,8 @@ from typing import Dict, Optional
 import requests
 import urllib3
 from playwright.sync_api import sync_playwright
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from app.config import config
 from app.models.exchange_rate import CurrencyDetail, Rate
@@ -12,29 +14,56 @@ if not config.SSL_VERIFY:
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
+def _build_session() -> requests.Session:
+    session = requests.Session()
+    retry = Retry(
+        total=2,
+        backoff_factor=1,
+        status_forcelist=(500, 502, 503, 504),
+        allowed_methods=frozenset(["GET", "POST"]),
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
+
+
 class BaseCrawler(ABC):
     """Base class for HTTP API crawlers."""
 
     BANK_NAME: str = ""
+    DEFAULT_HEADERS = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        ),
+        "Accept": "application/json, text/html;q=0.9, */*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9,mn;q=0.8",
+    }
 
     def __init__(self, date: str):
         self.date = date
         self.timeout = config.REQUEST_TIMEOUT
         self.ssl_verify = config.SSL_VERIFY
+        self.session = _build_session()
 
     @abstractmethod
     def crawl(self) -> Dict[str, CurrencyDetail]:
         pass
 
     def get(self, url: str, **kwargs) -> requests.Response:
-        return requests.get(
-            url, verify=self.ssl_verify, timeout=self.timeout, **kwargs
-        )
+        kwargs.setdefault("timeout", self.timeout)
+        kwargs.setdefault("verify", self.ssl_verify)
+        headers = kwargs.get("headers", {})
+        kwargs["headers"] = {**self.DEFAULT_HEADERS, **headers}
+        return self.session.get(url, **kwargs)
 
     def post(self, url: str, **kwargs) -> requests.Response:
-        return requests.post(
-            url, verify=self.ssl_verify, timeout=self.timeout, **kwargs
-        )
+        kwargs.setdefault("timeout", self.timeout)
+        kwargs.setdefault("verify", self.ssl_verify)
+        headers = kwargs.get("headers", {})
+        kwargs["headers"] = {**self.DEFAULT_HEADERS, **headers}
+        return self.session.post(url, **kwargs)
 
     @staticmethod
     def parse_float(value) -> Optional[float]:

@@ -28,6 +28,13 @@ def _env_positive_int(key: str, default: int) -> int:
     return value
 
 
+def _env_non_negative_int(key: str, default: int) -> int:
+    value = _env_int(key, default)
+    if value < 0:
+        raise ValueError(f"{key} must be greater than or equal to 0")
+    return value
+
+
 def _env_list(key: str, default: str = "") -> list[str]:
     return [
         item.strip() for item in _env(key, default).split(",") if item.strip()
@@ -43,9 +50,12 @@ def _validate_cors_config(origins: list[str], allow_credentials: bool) -> None:
 
 
 def _database_url() -> str:
-    url = _env("DATABASE_URL", "sqlite:///./exchange_rates.db")
+    default = "sqlite:///./exchange_rates.db"
+    url = _env("DATABASE_URL", default) or default
     if url.startswith("postgres://"):
-        return url.replace("postgres://", "postgresql://", 1)
+        url = url.replace("postgres://", "postgresql://", 1)
+    if url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
     return url
 
 
@@ -57,9 +67,20 @@ class Config:
     CRON_SCHEDULE = _env("CRON_SCHEDULE", "0 9 * * *")
 
     # HTTP settings
-    SSL_VERIFY = _env_bool("SSL_VERIFY", False)
+    SSL_VERIFY = _env_bool("SSL_VERIFY", True)
     REQUEST_TIMEOUT = _env_positive_int("REQUEST_TIMEOUT", 30)
     PLAYWRIGHT_TIMEOUT = _env_positive_int("PLAYWRIGHT_TIMEOUT", 60000)
+
+    # Logging
+    LOG_LEVEL = _env("LOG_LEVEL", "INFO")
+
+    # Self-ping keepalive (empty means disabled). Set to the app's own public
+    # URL (e.g. https://your-app.onrender.com) to stop Render's free tier
+    # from sleeping the instance after ~15 minutes of no inbound traffic.
+    SELF_PING_URL = _env("SELF_PING_URL")
+    SELF_PING_INTERVAL_SECONDS = _env_positive_int(
+        "SELF_PING_INTERVAL_SECONDS", 30
+    )
 
     # Public API safeguards
     API_MAX_LIMIT = _env_positive_int("API_MAX_LIMIT", 100)
@@ -74,10 +95,15 @@ class Config:
     )
     RATE_LIMIT_MAX_CLIENTS = _env_positive_int("RATE_LIMIT_MAX_CLIENTS", 10000)
 
+    # Admin endpoints (POST /api/admin/*) - empty means the feature is
+    # disabled (503), never "open to anyone"
+    ADMIN_API_KEY = _env("ADMIN_API_KEY")
+
     # Parallel execution
     ENABLE_PARALLEL = _env_bool("ENABLE_PARALLEL", True)
     MAX_WORKERS = _env_positive_int("MAX_WORKERS", 8)
     PLAYWRIGHT_MAX_WORKERS = _env_positive_int("PLAYWRIGHT_MAX_WORKERS", 3)
+    BACKFILL_DELAY_SECONDS = _env_non_negative_int("BACKFILL_DELAY_SECONDS", 2)
 
     # Bank API endpoints
     KHANBANK_URI = _env(

@@ -13,13 +13,12 @@ services:
       RATE_LIMIT_WINDOW_SECONDS: ${RATE_LIMIT_WINDOW_SECONDS:-60}
       RATE_LIMIT_MAX_CLIENTS: ${RATE_LIMIT_MAX_CLIENTS:-10000}
       API_MAX_LIMIT: ${API_MAX_LIMIT:-100}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-}
     ports:
       - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
-    volumes:
-      - ./logs:/app/logs
     restart: unless-stopped
     networks:
       - bank-network
@@ -29,7 +28,7 @@ services:
           "CMD",
           "python",
           "-c",
-          "import requests; requests.get('http://localhost:8000/health', timeout=5)",
+          "import requests; requests.get('http://localhost:8000/api/health', timeout=5)",
         ]
       interval: 30s
       timeout: 10s
@@ -51,8 +50,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    volumes:
-      - ./logs:/app/logs
     restart: unless-stopped
     networks:
       - bank-network

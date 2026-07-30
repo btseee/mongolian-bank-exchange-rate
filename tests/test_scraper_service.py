@@ -58,7 +58,7 @@ class TestScraperService:
             ) as mock_run_group,
             patch.object(service, "_save") as mock_save,
         ):
-            service.run_all()
+            summary = service.run_all()
 
         assert mock_run_group.call_count == 2
         saved_results = mock_save.call_args.args[0]
@@ -66,6 +66,11 @@ class TestScraperService:
             "BrowserBank",
             "HttpBank",
         ]
+        assert summary == {
+            "succeeded": 1,
+            "failed": 1,
+            "failed_banks": ["BrowserBank"],
+        }
 
     @patch("app.services.scraper.repository.save_rates")
     @patch("app.services.scraper.SessionLocal")

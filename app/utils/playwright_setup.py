@@ -1,6 +1,8 @@
 import subprocess
 import sys
 
+from app.utils.logger import logger
+
 
 def ensure_playwright_browsers():
     """Install Playwright browsers if not already installed."""
@@ -10,6 +12,8 @@ def ensure_playwright_browsers():
             check=True,
             capture_output=True,
         )
-    except subprocess.CalledProcessError:
-        # Browsers already installed or restricted environment
-        pass
+    except subprocess.CalledProcessError as e:
+        logger.warning(
+            "playwright install chromium failed (may already be "
+            f"installed or environment is restricted): {e}"
+        )

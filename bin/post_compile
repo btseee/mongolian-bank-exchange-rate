@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-# Install Playwright browsers during Heroku build
-playwright install chromium

@@ -1,13 +1,14 @@
 import datetime
 
 from app.api import api
+from app.api.dependencies import BANKS
 from app.config import config
 from app.models.currency import CurrencyRate
 
 
-class TestRootEndpoint:
-    def test_root_returns_api_info(self, client):
-        response = client.get("/")
+class TestInfoEndpoint:
+    def test_info_returns_api_info(self, client):
+        response = client.get("/api/info")
         assert response.status_code == 200
         data = response.json()
         assert "name" in data
@@ -15,23 +16,23 @@ class TestRootEndpoint:
         assert "supported_banks" in data
         assert len(data["supported_banks"]) == 15
 
-    def test_root_contains_endpoints(self, client):
-        response = client.get("/")
+    def test_info_contains_endpoints(self, client):
+        response = client.get("/api/info")
         data = response.json()
-        assert "/rates" in data["endpoints"]
-        assert "/rates/latest" in data["endpoints"]
+        assert "/api/rates" in data["endpoints"]
+        assert "/api/rates/latest" in data["endpoints"]
 
 
 class TestHealthEndpoint:
     def test_health_returns_healthy(self, client):
-        response = client.get("/health")
+        response = client.get("/api/health")
         assert response.status_code == 200
         assert response.json()["status"] == "healthy"
 
 
 class TestRatesEndpoints:
     def test_get_all_rates_empty(self, client):
-        response = client.get("/rates")
+        response = client.get("/api/rates")
         assert response.status_code == 200
         assert response.json() == []
 
@@ -44,13 +45,13 @@ class TestRatesEndpoints:
         test_db.add(rate)
         test_db.commit()
 
-        response = client.get("/rates")
+        response = client.get("/api/rates")
         assert response.status_code == 200
         assert len(response.json()) == 1
         assert response.json()[0]["bank_name"] == "KhanBank"
 
     def test_get_all_rates_rejects_limit_above_config(self, client):
-        response = client.get(f"/rates?limit={config.API_MAX_LIMIT + 1}")
+        response = client.get(f"/api/rates?limit={config.API_MAX_LIMIT + 1}")
         assert response.status_code == 422
 
     def test_get_latest_rates(self, client, test_db, sample_rate_data):
@@ -67,7 +68,7 @@ class TestRatesEndpoints:
         test_db.add_all([rate1, rate2])
         test_db.commit()
 
-        response = client.get("/rates/latest")
+        response = client.get("/api/rates/latest")
         assert response.status_code == 200
         assert len(response.json()) == 2
 
@@ -82,16 +83,16 @@ class TestRatesByBankEndpoints:
         test_db.add(rate)
         test_db.commit()
 
-        response = client.get("/rates/bank/KhanBank")
+        response = client.get("/api/rates/bank/KhanBank")
         assert response.status_code == 200
         assert response.json()[0]["bank_name"] == "KhanBank"
 
     def test_get_rates_by_bank_not_found(self, client):
-        response = client.get("/rates/bank/GolomtBank")
+        response = client.get("/api/rates/bank/GolomtBank")
         assert response.status_code == 404
 
     def test_get_rates_by_bank_rejects_unknown_bank(self, client):
-        response = client.get("/rates/bank/NonExistent")
+        response = client.get("/api/rates/bank/NonExistent")
         assert response.status_code == 422
 
     def test_openapi_lists_supported_bank_names(self, client):
@@ -100,7 +101,7 @@ class TestRatesByBankEndpoints:
 
         bank_schema = response.json()["components"]["schemas"]["BankName"]
         assert "KhanBank" in bank_schema["enum"]
-        assert bank_schema["enum"] == api.BANKS
+        assert bank_schema["enum"] == BANKS
 
 
 class TestRatesByDateEndpoints:
@@ -112,20 +113,20 @@ class TestRatesByDateEndpoints:
         test_db.add(rate)
         test_db.commit()
 
-        response = client.get(f"/rates/date/{today.isoformat()}")
+        response = client.get(f"/api/rates/date/{today.isoformat()}")
         assert response.status_code == 200
         assert len(response.json()) == 1
 
     def test_get_rates_by_date_not_found(self, client):
-        response = client.get("/rates/date/2020-01-01")
+        response = client.get("/api/rates/date/2020-01-01")
         assert response.status_code == 404
 
     def test_get_rates_by_date_invalid(self, client):
-        response = client.get("/rates/date/invalid")
+        response = client.get("/api/rates/date/invalid")
         assert response.status_code == 400
 
     def test_get_rates_by_date_rejects_compact_iso_date(self, client):
-        response = client.get("/rates/date/20260506")
+        response = client.get("/api/rates/date/20260506")
         assert response.status_code == 400
 
 
@@ -138,12 +139,14 @@ class TestRatesByBankAndDate:
         test_db.add(rate)
         test_db.commit()
 
-        response = client.get(f"/rates/bank/KhanBank/date/{today.isoformat()}")
+        response = client.get(
+            f"/api/rates/bank/KhanBank/date/{today.isoformat()}"
+        )
         assert response.status_code == 200
         assert response.json()["bank_name"] == "KhanBank"
 
     def test_get_rate_not_found(self, client):
-        response = client.get("/rates/bank/KhanBank/date/2020-01-01")
+        response = client.get("/api/rates/bank/KhanBank/date/2020-01-01")
         assert response.status_code == 404
 
 
@@ -156,10 +159,10 @@ class TestApiRateLimit:
         monkeypatch.setattr(api.config, "RATE_LIMIT_REQUESTS", 2)
         monkeypatch.setattr(api.config, "RATE_LIMIT_WINDOW_SECONDS", 60)
 
-        assert client.get("/").status_code == 200
-        assert client.get("/").status_code == 200
+        assert client.get("/api/info").status_code == 200
+        assert client.get("/api/info").status_code == 200
 
-        response = client.get("/")
+        response = client.get("/api/info")
         assert response.status_code == 429
         assert response.json()["detail"] == "Rate limit exceeded"
         assert "Retry-After" in response.headers
@@ -170,8 +173,8 @@ class TestApiRateLimit:
         monkeypatch.setattr(api.config, "RATE_LIMIT_REQUESTS", 1)
         monkeypatch.setattr(api.config, "RATE_LIMIT_WINDOW_SECONDS", 60)
 
-        assert client.get("/health").status_code == 200
-        assert client.get("/health").status_code == 200
+        assert client.get("/api/health").status_code == 200
+        assert client.get("/api/health").status_code == 200
 
     def test_rate_limit_ignores_forwarded_for_by_default(
         self, client, monkeypatch
@@ -180,7 +183,9 @@ class TestApiRateLimit:
         monkeypatch.setattr(api.config, "RATE_LIMIT_ENABLED", True)
         monkeypatch.setattr(api.config, "TRUST_PROXY_HEADERS", False)
 
-        response = client.get("/", headers={"x-forwarded-for": "203.0.113.5"})
+        response = client.get(
+            "/api/info", headers={"x-forwarded-for": "203.0.113.5"}
+        )
 
         assert response.status_code == 200
         assert "203.0.113.5" not in api._rate_limit_hits
@@ -193,13 +198,13 @@ class TestApiRateLimit:
 
         assert (
             client.get(
-                "/", headers={"x-forwarded-for": "203.0.113.5"}
+                "/api/info", headers={"x-forwarded-for": "203.0.113.5"}
             ).status_code
             == 200
         )
         assert (
             client.get(
-                "/", headers={"x-forwarded-for": "203.0.113.6"}
+                "/api/info", headers={"x-forwarded-for": "203.0.113.6"}
             ).status_code
             == 200
         )

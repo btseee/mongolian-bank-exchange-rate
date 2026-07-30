@@ -26,8 +26,9 @@ HTTP_CRAWLERS = [
     CapitronBank,
     NaimanSharga,
     SendMN,
+    MBank,
 ]
-PLAYWRIGHT_CRAWLERS = [TDBM, BogdBank, CKBank, NIBank, TransBank, MBank]
+PLAYWRIGHT_CRAWLERS = [TDBM, BogdBank, CKBank, NIBank, TransBank]
 ALL_CRAWLERS = HTTP_CRAWLERS + PLAYWRIGHT_CRAWLERS
 
 CRAWLER_MAP = {c.BANK_NAME.lower(): c for c in ALL_CRAWLERS}

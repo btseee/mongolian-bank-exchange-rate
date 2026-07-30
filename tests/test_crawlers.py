@@ -413,6 +413,12 @@ class TestAllCrawlersImport:
         for bank in expected_banks:
             assert bank in CRAWLER_MAP
 
+    def test_mbank_is_grouped_as_http_crawler(self):
+        from app.crawlers import HTTP_CRAWLERS, PLAYWRIGHT_CRAWLERS, MBank
+
+        assert MBank in HTTP_CRAWLERS
+        assert MBank not in PLAYWRIGHT_CRAWLERS
+
 
 class TestPlaywrightCrawlersExist:
     """Test Playwright crawlers can be instantiated."""
@@ -454,6 +460,32 @@ class TestPlaywrightCrawlersExist:
         assert crawler.BANK_NAME == "MBank"
 
 
+class TestNIBank:
+    def test_crawl_page_parses_all_four_rate_fields(self):
+        from app.crawlers import NIBank
+
+        block_text = (
+            "USD United States Dollar\n"
+            "Бэлэн авах\n3400.00\n"
+            "Бэлэн зарах\n3450.00\n"
+            "Бэлэн бус авах\n3410.00\n"
+            "Бэлэн бус зарах\n3440.00\n"
+        )
+        mock_block = MagicMock()
+        mock_block.inner_text.return_value = block_text
+
+        mock_page = MagicMock()
+        mock_page.locator.return_value.all.return_value = [mock_block]
+
+        crawler = NIBank(datetime.date.today().isoformat())
+        rates = crawler._crawl_page(mock_page)
+
+        assert rates["usd"].cash.buy == 3400.0
+        assert rates["usd"].cash.sell == 3450.0
+        assert rates["usd"].noncash.buy == 3410.0
+        assert rates["usd"].noncash.sell == 3440.0
+
+
 class TestTDBM:
     def test_parse_html_table(self):
         from app.crawlers import TDBM
@@ -479,7 +511,7 @@ class TestTDBM:
         assert rates["usd"].noncash.sell == 3577.0
 
     @patch("app.crawlers.base.PlaywrightCrawler.crawl")
-    @patch("app.crawlers.tdbm.requests.get")
+    @patch("app.crawlers.base.BaseCrawler.get")
     def test_crawl_falls_back_to_playwright_on_static_request_error(
         self, mock_get, mock_playwright_crawl
     ):

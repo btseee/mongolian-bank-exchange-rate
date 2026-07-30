@@ -41,7 +41,7 @@ class NIBank(PlaywrightCrawler):
                         cash_sell = self.parse_float(lines[i + 1])
                     elif "Бэлэн бус авах" in line:
                         noncash_buy = self.parse_float(lines[i + 1])
-                    elif "Бэлэн бус за" in line:
+                    elif "Бэлэн бус зарах" in line:
                         noncash_sell = self.parse_float(lines[i + 1])
 
             rates[code] = self.make_rate(

@@ -44,6 +44,12 @@ class ScraperService:
         failed = len([r for r in results if r[2]])
         logger.info(f"Crawl completed: {success} succeeded, {failed} failed")
 
+        return {
+            "succeeded": success,
+            "failed": failed,
+            "failed_banks": [r[0] for r in results if r[2]],
+        }
+
     def _run_group(
         self, crawler_classes: List, max_workers: int
     ) -> List[Tuple]:
@@ -64,9 +70,14 @@ class ScraperService:
         try:
             crawler = crawler_cls(self.date)
             rates = crawler.crawl()
-            logger.info(
-                f"{bank_name}: crawled {len(rates) if rates else 0} currencies"
-            )
+            count = len(rates) if rates else 0
+            if count == 0:
+                logger.warning(
+                    f"{bank_name}: crawled 0 currencies - possible "
+                    "parsing break or upstream change"
+                )
+            else:
+                logger.info(f"{bank_name}: crawled {count} currencies")
             return bank_name, rates, None
         except Exception as e:
             logger.error(f"{bank_name}: crawl failed - {e}")

@@ -1,0 +1,61 @@
+# Triggers the daily bank-rate crawl over HTTP.
+#
+# Render's free tier has no background-worker/cron process type - only a
+# web service that must serve HTTP to stay alive - so there is no way to
+# run scripts/cron.py's always-on scheduler there for free. This workflow
+# is the replacement: it POSTs to the deployed API's admin endpoint and
+# polls until the job finishes, failing the run loudly if it didn't
+# succeed.
+#
+# Required repository configuration (Settings -> Secrets and variables):
+#   - Actions secret   ADMIN_API_KEY   same value as the API's ADMIN_API_KEY
+#   - Actions variable RENDER_APP_URL  e.g. https://your-app.onrender.com
+name: Scheduled Crawl
+
+on:
+  schedule:
+    - cron: "0 9 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  trigger-crawl:
+    name: Trigger and confirm daily crawl
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger POST /api/admin/crawl
+        run: |
+          curl --fail-with-body --max-time 150 -X POST \
+            "${{ vars.RENDER_APP_URL }}/api/admin/crawl" \
+            -H "X-Admin-Key: ${{ secrets.ADMIN_API_KEY }}"
+
+      # Render free web services cold-start after ~15 min idle, and the
+      # crawl itself runs in the background (202 Accepted), so the actual
+      # result is only knowable by polling GET /api/admin/status.
+      - name: Poll GET /api/admin/status until the job finishes
+        run: |
+          for i in $(seq 1 30); do
+            sleep 20
+            status=$(curl --fail --max-time 30 -s \
+              "${{ vars.RENDER_APP_URL }}/api/admin/status" \
+              -H "X-Admin-Key: ${{ secrets.ADMIN_API_KEY }}")
+            echo "$status"
+
+            is_running=$(echo "$status" | jq -r '.is_running')
+            if [ "$is_running" = "false" ]; then
+              last_error=$(echo "$status" | jq -r '.last_error')
+              failed=$(echo "$status" | jq -r '.last_result.failed // 0')
+
+              if [ "$last_error" != "null" ]; then
+                echo "::error::Crawl job failed: $last_error"
+                exit 1
+              fi
+              if [ "$failed" -gt 0 ]; then
+                echo "::warning::Crawl finished with $failed bank(s) failing - check the Render logs"
+              fi
+              echo "Crawl completed."
+              exit 0
+            fi
+          done
+
+          echo "::error::Crawl did not finish within the 10-minute poll window"
+          exit 1
