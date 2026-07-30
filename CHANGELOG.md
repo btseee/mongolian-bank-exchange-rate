@@ -54,10 +54,40 @@ Heroku-г бүрмөсөн хасаж, Render.com-ийн free Docker web service
 - MongolBank XXE эмзэг байдал, BogdBank/TDBM/TransBank/MBank/CapitronBank-ийн бодит алдаанууд засагдсан.
 - Нийт дэмжигдэх банкны тоо: 13 → 15.
 
+## [v1.0.7] - 2026-03-04
+
+- ArigBank bearer token, MBank parser засагдсан; `MBank` HTTP crawler руу шилжсэн.
+- Дутуу байсан `__init__.py` файлууд нэмэгдсэн; Dockerfile-ийн Python хувилбар 3.13 болсон.
+- CodeQL code scanning workflow нэмэгдсэн.
+
 ## [v1.0.6] - 2026-02-06
 
 Код бүтцийг бүхэлд нь сайжруулсан refactor: crawler-уудыг нэгтгэж давхардал арилгасан, base crawler class, хялбаршуулсан scraper service, цэгцтэй API endpoint. CONTRIBUTING.md, CODE_OF_CONDUCT.md, SECURITY.md, issue/PR template, энэ CHANGELOG нэмэгдсэн.
 
 ## [v1.0.5] - 2026-01-22
 
-Анхны хувилбар - 13 банкны валютын ханш цуглуулалт, FastAPI REST API, Docker, PostgreSQL/SQLite, cron scheduler.
+- Heroku deployment бэлтгэл: Playwright APT buildpack, Procfile, runtime config.
+- Давхардсан мөр үүсэхээс сэргийлэх upsert логик, backfill script нэмэгдсэн.
+- BogdBank-ийн түүхэн огнооны (`date` параметргүй) crawl засагдсан.
+- Playwright дэмжлэгийн тулд Docker container deployment руу шилжсэн.
+
+## [v1.0.4] - 2026-01-22
+
+Анхны бодит test suite, CI/CD pipeline, lint/formatting (isort/black) тохиргоо нэмэгдсэн. CodeQL action, gh-release action шинэчлэгдсэн.
+
+## [v1.0.3] - 2026-01-20
+
+Код цэвэрлэгээ - ашиглагдаагүй comment/log устгасан.
+
+## [v1.0.2] - 2025-11-05
+
+- Parallel processing (зэрэгцээ crawl) нэмэгдсэн; TDBM-ийн Playwright timeout засагдсан.
+- CI workflow-уудыг хялбарчилсан, crawler бүтцийг сайжруулсан, код форматлагдсан.
+
+## [v1.0.1] - 2025-10-31
+
+Docker тохиргооны жижиг засвар.
+
+## [v1.0.0] - 2025-10-31
+
+Анхны хувилбар - 13 банкны валютын ханш цуглуулалт, FastAPI REST API, Docker, GitHub Actions CI/CD анх удаа тохируулагдсан.
