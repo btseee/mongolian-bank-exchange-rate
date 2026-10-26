@@ -42,11 +42,14 @@ class TransBank(PlaywrightCrawler):
                     continue
                 cash = v.get("2", {})
                 noncash = v.get("3", {})
+                # The feed names rates from the customer's side, and the
+                # site's own table shows SELL_RATE under "buy" and
+                # BUY_RATE under "sell" - match that, like _parse_table.
                 rates[code.strip().lower()] = self.make_rate(
-                    cash_buy=self.parse_float(cash.get("BUY_RATE")),
-                    cash_sell=self.parse_float(cash.get("SELL_RATE")),
-                    noncash_buy=self.parse_float(noncash.get("BUY_RATE")),
-                    noncash_sell=self.parse_float(noncash.get("SELL_RATE")),
+                    cash_buy=self.parse_float(cash.get("SELL_RATE")),
+                    cash_sell=self.parse_float(cash.get("BUY_RATE")),
+                    noncash_buy=self.parse_float(noncash.get("SELL_RATE")),
+                    noncash_sell=self.parse_float(noncash.get("BUY_RATE")),
                 )
         return rates
 

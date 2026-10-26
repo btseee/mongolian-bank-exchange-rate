@@ -808,10 +808,14 @@ class TestTransBank:
 
         rates = crawler._crawl_page(self._page_with_next_data())
 
-        assert rates["usd"].cash.buy == 3620.0
-        assert rates["usd"].cash.sell == 3590.0
-        assert rates["usd"].noncash.buy == 3599.0
-        assert rates["eur"].noncash.sell == 3929.0
+        # The feed names rates from the customer's side: SELL_RATE is what
+        # the bank pays (our "buy"), BUY_RATE what it charges (our "sell").
+        assert rates["usd"].cash.buy == 3590.0
+        assert rates["usd"].cash.sell == 3620.0
+        assert rates["usd"].noncash.buy == 3590.0
+        assert rates["usd"].noncash.sell == 3599.0
+        assert rates["eur"].noncash.buy == 3929.0
+        assert rates["eur"].noncash.sell == 4125.0
 
     def test_crawl_page_does_not_require_a_table(self):
         """The homepage carries the rates in __NEXT_DATA__ but has no
