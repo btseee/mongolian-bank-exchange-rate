@@ -39,7 +39,7 @@ def require_admin_key(api_key: str = Security(_admin_key_header)) -> None:
             503, "Admin endpoints are disabled (ADMIN_API_KEY not set)"
         )
     key_matches = api_key and secrets.compare_digest(
-        api_key, config.ADMIN_API_KEY
+        api_key.encode(), config.ADMIN_API_KEY.encode()
     )
     if not key_matches:
         raise HTTPException(401, "Invalid or missing X-Admin-Key header")

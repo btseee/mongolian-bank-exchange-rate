@@ -57,6 +57,14 @@ class TestAdminAuth:
         )
         assert response.status_code == 401
 
+    def test_401_when_key_is_non_ascii(self, client, monkeypatch):
+        monkeypatch.setattr(config, "ADMIN_API_KEY", ADMIN_KEY)
+        response = client.post(
+            "/api/admin/crawl",
+            headers={"X-Admin-Key": "café".encode("latin-1")},
+        )
+        assert response.status_code == 401
+
 
 class TestAdminCrawl:
     def test_returns_202_and_runs_background_task(self, client, monkeypatch):
