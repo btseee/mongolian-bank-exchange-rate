@@ -91,14 +91,12 @@ class ScraperService:
         try:
             crawler = crawler_cls(self.date)
             rates = crawler.crawl()
-            count = len(rates) if rates else 0
-            if count == 0:
-                logger.warning(
-                    f"{bank_name}: crawled 0 currencies - possible "
-                    "parsing break or upstream change"
+            if not rates:
+                raise RuntimeError(
+                    "crawled 0 currencies - possible parsing break or "
+                    "upstream change"
                 )
-            else:
-                logger.info(f"{bank_name}: crawled {count} currencies")
+            logger.info(f"{bank_name}: crawled {len(rates)} currencies")
             return bank_name, rates, None
         except Exception as e:
             logger.error(f"{bank_name}: crawl failed - {e}")

@@ -4,6 +4,16 @@ from unittest.mock import MagicMock, patch
 from app.services.scraper import ScraperService
 
 
+class _EmptyCrawler:
+    BANK_NAME = "EmptyBank"
+
+    def __init__(self, date):
+        self.date = date
+
+    def crawl(self):
+        return {}
+
+
 class TestScraperService:
     def test_init_default_date(self):
         service = ScraperService()
@@ -40,6 +50,35 @@ class TestScraperService:
         assert bank == "TestBank"
         assert rates is None
         assert error is not None
+
+    def test_execute_treats_zero_currencies_as_failure(self):
+        service = ScraperService()
+
+        bank, rates, error = service._execute(_EmptyCrawler)
+
+        assert bank == "EmptyBank"
+        assert rates is None
+        assert isinstance(error, RuntimeError)
+        assert "0 currencies" in str(error)
+
+    @patch("app.services.scraper.config")
+    def test_run_all_reports_empty_bank_as_failed(self, mock_config):
+        mock_config.ENABLE_PARALLEL = False
+        service = ScraperService(date="2026-01-15")
+
+        with (
+            patch("app.services.scraper.HTTP_CRAWLERS", [_EmptyCrawler]),
+            patch("app.services.scraper.PLAYWRIGHT_CRAWLERS", []),
+            patch.object(service, "_save") as mock_save,
+        ):
+            summary = service.run_all()
+
+        assert summary == {
+            "succeeded": 0,
+            "failed": 1,
+            "failed_banks": ["EmptyBank"],
+        }
+        mock_save.assert_called_once()
 
     @patch("app.services.scraper.config")
     def test_run_all_parallel_executes_groups_and_saves(self, mock_config):
