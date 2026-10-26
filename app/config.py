@@ -135,7 +135,7 @@ class Config:
     BOGDBANK_URI = _env("BOGDBANK_URI", "https://www.bogdbank.com/exchange")
     CKBANK_URI = _env("CKBANK_URI", "https://www.ckbank.mn/currency-rates")
     NIBANK_URI = _env("NIBANK_URI", "https://www.nibank.mn/en/rate")
-    TRANSBANK_URI = _env("TRANSBANK_URI", "https://transbank.mn/en/exchange")
+    TRANSBANK_URI = _env("TRANSBANK_URI", "https://transbank.mn/en")
     MBANK_URI = _env("MBANK_URI", "https://m-bank.mn/")
 
     # Firebase Firestore-based APIs

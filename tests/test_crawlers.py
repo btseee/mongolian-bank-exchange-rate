@@ -1,4 +1,5 @@
 import datetime
+import json
 from unittest.mock import MagicMock, patch
 
 import requests
@@ -768,3 +769,58 @@ class TestNaimanSharga:
         crawler = NaimanSharga(datetime.date.today().isoformat())
         rates = crawler.crawl()
         assert rates == {}
+
+
+class TestTransBank:
+    NEXT_DATA = {
+        "props": {
+            "pageProps": {
+                "rateData": {
+                    "2026-10-24": {
+                        "USD": {
+                            "NAME": "US Dollar",
+                            "2": {"BUY_RATE": "3620", "SELL_RATE": "3590"},
+                            "3": {"BUY_RATE": "3599", "SELL_RATE": "3590"},
+                        },
+                        "EUR": {
+                            "NAME": "Euro",
+                            "2": {"BUY_RATE": "4146", "SELL_RATE": "3929"},
+                            "3": {"BUY_RATE": "4125", "SELL_RATE": "3929"},
+                        },
+                    }
+                }
+            }
+        }
+    }
+
+    def _page_with_next_data(self):
+        script = MagicMock()
+        script.count.return_value = 1
+        script.inner_text.return_value = json.dumps(self.NEXT_DATA)
+        page = MagicMock()
+        page.locator.return_value.first = script
+        return page
+
+    def test_crawl_page_reads_rates_from_next_data(self):
+        from app.crawlers import TransBank
+
+        crawler = TransBank("2026-10-26")
+
+        rates = crawler._crawl_page(self._page_with_next_data())
+
+        assert rates["usd"].cash.buy == 3620.0
+        assert rates["usd"].cash.sell == 3590.0
+        assert rates["usd"].noncash.buy == 3599.0
+        assert rates["eur"].noncash.sell == 3929.0
+
+    def test_crawl_page_does_not_require_a_table(self):
+        """The homepage carries the rates in __NEXT_DATA__ but has no
+        <table>, so the page wait must accept the script tag alone."""
+        from app.crawlers import TransBank
+
+        page = self._page_with_next_data()
+
+        TransBank("2026-10-26")._crawl_page(page)
+
+        selector = page.wait_for_selector.call_args.args[0]
+        assert "script#__NEXT_DATA__" in selector
