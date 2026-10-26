@@ -21,6 +21,7 @@ COPY . .
 
 # ============ Test Stage ============
 FROM base AS test
+RUN pip install --no-cache-dir -r requirements-dev.txt
 RUN pytest --cov=app --cov-report=term-missing -v
 
 # ============ Production Stage ============

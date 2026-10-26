@@ -124,6 +124,7 @@ Rate limit болон admin job lock нь process-dotor memory ашиглада�
 ## Хөгжүүлэгчийн Шалгалт
 
 ```bash
+python -m pip install -r requirements-dev.txt   # black, isort, ruff, pytest
 isort app tests scripts main.py --check-only && black app tests scripts main.py --check
 ruff check app tests scripts main.py
 pytest

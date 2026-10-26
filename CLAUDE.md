@@ -34,7 +34,7 @@ them over a REST API. Deployed as a Docker web service on Render's free tier.
 
 ```bash
 python -m venv .venv && .venv\Scripts\activate      # Linux/macOS: source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt   # runtime + black/isort/ruff/pytest
 python -m playwright install chromium
 
 isort app tests scripts main.py --check-only && black app tests scripts main.py --check
@@ -55,7 +55,7 @@ pytest
   worth a migration framework yet.
 - No task queue/Redis. Admin job concurrency is a single in-process lock; don't add
   multi-worker/multi-replica support without redesigning that first.
-- All dependencies are exact-pinned (`==`) in `requirements.txt`, not floor-pinned. Bump
+- All dependencies are exact-pinned (`==`) in `requirements.txt` (runtime) and `requirements-dev.txt` (lint/test, includes the runtime file), not floor-pinned. Bump
   deliberately, and re-run the full local check sequence above after any bump — pytest 8→9 and
   similar majors have broken things silently before.
 - Admin endpoints (`/api/admin/*`) require `X-Admin-Key` header, checked against

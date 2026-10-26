@@ -1,0 +1,11 @@
+-r requirements.txt
+
+# Lint / format
+black==26.10.1
+isort==5.13.2
+ruff==0.16.0
+
+# Testing
+pytest==9.1.1
+pytest-cov==7.1.0
+httpx2==2.16.0  # starlette.testclient prefers this over httpx, avoids a deprecation warning
