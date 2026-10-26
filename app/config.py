@@ -145,7 +145,12 @@ class Config:
     )
     NSHARGA_FIRESTORE_BASE_URL = _env(
         "NSHARGA_FIRESTORE_BASE_URL",
-        "https://firestore.googleapis.com/v1/projects/nsharga-2ec6a/databases/(default)/documents/currency_rates?key=AIzaSyBA-tL_dqi1MsO43OkwllUpV7k6rf0Iys4",
+        "https://firestore.googleapis.com/v1/projects/nsharga-2ec6a/databases/(default)/documents/currency_rates_new?key=AIzaSyBA-tL_dqi1MsO43OkwllUpV7k6rf0Iys4",
+    )
+    # The app moved to currency_rates_new/<date>/companies/<company uid> on
+    # 2026-09-27; this is the "NSHMT" (Найман шарга мэдээллийн төв) account.
+    NSHARGA_COMPANY_ID = _env(
+        "NSHARGA_COMPANY_ID", "sdKPfYBtU9anGKBmOSiDcpKSnGB3"
     )
 
 
