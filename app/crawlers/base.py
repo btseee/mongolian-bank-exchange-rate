@@ -79,9 +79,10 @@ class BaseCrawler(ABC):
                 .replace(" ", "")
                 .replace("\xa0", "")
             )
-            if not cleaned or cleaned == "-" or cleaned == "0":
+            if not cleaned or cleaned == "-":
                 return None
-            return float(cleaned)
+            rate = float(cleaned)
+            return rate if rate != 0 else None
         except (ValueError, TypeError):
             return None
 

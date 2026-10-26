@@ -351,6 +351,10 @@ class TestBaseCrawler:
         assert BaseCrawler.parse_float("-") is None
         assert BaseCrawler.parse_float(0) is None
 
+    def test_parse_float_zero_strings_mean_unavailable(self):
+        for value in ("0", "0.00", "00.00", " 0.0 ", "0,00", 0.0):
+            assert BaseCrawler.parse_float(value) is None
+
     def test_parse_float_whitespace(self):
         assert BaseCrawler.parse_float(" 3420.5 ") == 3420.5
         assert BaseCrawler.parse_float("3 420.5") == 3420.5
