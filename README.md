@@ -100,6 +100,7 @@ Always-on worker байхгүй орчинд эдгээрийг дээрх admin
 | --- | --- | --- |
 | `DATABASE_URL` | SQLite | Байнгын хадгалалт хэрэгтэй бол Postgres connection string болгож солино (Docker Compose-д PostgreSQL орсон) |
 | `ADMIN_API_KEY` | (хоосон) | `/api/admin/*`-г хамгаалах secret. Хоосон бол 503 |
+| `ARIGBANK_PROXY_URL` | (хоосон) | ArigBank-ийн хүсэлтийг зөвхөн энэ proxy-оор дамжуулна (`http://host:3128`). www.arigbank.mn зарим сүлжээнээс хүрэх боломжгүй |
 | `BACKFILL_DELAY_SECONDS` | `2` | Backfill-ийн өдөр бүрийн хоорондох азналт |
 | `LOG_LEVEL` | `INFO` | Python logging түвшин |
 | `SSL_VERIFY` | `true` | Crawler HTTP SSL verification |

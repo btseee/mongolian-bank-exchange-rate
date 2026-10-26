@@ -27,11 +27,20 @@ class ArigBank(BaseCrawler):
         data = self._get_rates(token)
         return self._rates_from_payload(data)
 
+    @staticmethod
+    def _proxies():
+        """Per-request proxies (they win over the environment's). arigbank.mn
+        is not reachable from every network, so only this bank can be
+        routed through ARIGBANK_PROXY_URL."""
+        proxy = (config.ARIGBANK_PROXY_URL or "").strip()
+        return {"http": proxy, "https": proxy} if proxy else None
+
     def _sign_in(self) -> str:
         resp = self.post(
             config.ARIGBANK_SIGNIN_URL,
             headers={"Content-Type": "application/json"},
             json={},
+            proxies=self._proxies(),
         )
         resp.raise_for_status()
 
@@ -49,6 +58,7 @@ class ArigBank(BaseCrawler):
             config.ARIGBANK_API_URL,
             headers=headers,
             json={"rateDate": self.date.replace("-", "")},
+            proxies=self._proxies(),
         )
         if resp.status_code == 401:
             try:

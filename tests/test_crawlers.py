@@ -203,6 +203,61 @@ class TestArigBank:
         assert rates["usd"].noncash.sell == 3578.0
         assert len(mock_post.call_args_list) == 3
 
+    @staticmethod
+    def _sign_in_and_rate_responses():
+        sign_in_resp = MagicMock()
+        sign_in_resp.json.return_value = {"token": "fresh-token"}
+        rate_resp = MagicMock()
+        rate_resp.status_code = 200
+        rate_resp.json.return_value = {
+            "data": [
+                {
+                    "curCode": "USD",
+                    "belenBuyRate": 3568,
+                    "belenSellRate": 3596,
+                    "belenBusBuyRate": 3568,
+                    "belenBusSellRate": 3578,
+                }
+            ]
+        }
+        return [sign_in_resp, rate_resp]
+
+    @patch("app.crawlers.arigbank.config")
+    @patch("app.crawlers.arigbank.BaseCrawler.post")
+    def test_crawl_routes_requests_through_configured_proxy(
+        self, mock_post, mock_config
+    ):
+        mock_config.ARIGBANK_BEARER_TOKEN = ""
+        mock_config.ARIGBANK_API_URL = "https://api.example.com/getRate"
+        mock_config.ARIGBANK_SIGNIN_URL = "https://api.example.com/signIn"
+        mock_config.ARIGBANK_PROXY_URL = "http://proxy.example:3128"
+        mock_post.side_effect = self._sign_in_and_rate_responses()
+
+        rates = ArigBank(datetime.date.today().isoformat()).crawl()
+
+        assert rates["usd"].cash.buy == 3568.0
+        proxy = "http://proxy.example:3128"
+        assert len(mock_post.call_args_list) == 2
+        for call in mock_post.call_args_list:
+            assert call.kwargs["proxies"] == {"http": proxy, "https": proxy}
+
+    @patch("app.crawlers.arigbank.config")
+    @patch("app.crawlers.arigbank.BaseCrawler.post")
+    def test_crawl_uses_no_proxy_when_not_configured(
+        self, mock_post, mock_config
+    ):
+        mock_config.ARIGBANK_BEARER_TOKEN = ""
+        mock_config.ARIGBANK_API_URL = "https://api.example.com/getRate"
+        mock_config.ARIGBANK_SIGNIN_URL = "https://api.example.com/signIn"
+        mock_config.ARIGBANK_PROXY_URL = ""
+        mock_post.side_effect = self._sign_in_and_rate_responses()
+
+        ArigBank(datetime.date.today().isoformat()).crawl()
+
+        assert len(mock_post.call_args_list) == 2
+        for call in mock_post.call_args_list:
+            assert call.kwargs["proxies"] is None
+
 
 class TestStateBank:
     @patch("app.crawlers.statebank.BaseCrawler.get")

@@ -110,6 +110,10 @@ class Config:
         "ARIGBANK_SIGNIN_URL", "https://www.arigbank.mn/exchange/signIn"
     )
     ARIGBANK_BEARER_TOKEN = _env("ARIGBANK_BEARER_TOKEN")
+    # Optional proxy for ArigBank requests only, e.g. http://host:3128 or
+    # http://user:pass@host:3128 - www.arigbank.mn is not reachable from
+    # every network.
+    ARIGBANK_PROXY_URL = _env("ARIGBANK_PROXY_URL")
     STATEBANK_URI = _env(
         "STATEBANK_URI", "https://www.statebank.mn/back/api/fetchrate"
     )
