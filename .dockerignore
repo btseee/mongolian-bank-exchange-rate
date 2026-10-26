@@ -24,6 +24,7 @@ wheels/
 *.egg
 
 # Virtual Environment
+.venv/
 venv/
 ENV/
 env/
@@ -61,6 +62,7 @@ docs/
 
 # Testing
 .pytest_cache/
+.ruff_cache/
 .coverage
 htmlcov/
 .tox/
@@ -68,6 +70,10 @@ htmlcov/
 # Logs
 *.log
 logs/
+
+# Local tooling state
+.clean/
+.serena/
 
 # OS
 .DS_Store
