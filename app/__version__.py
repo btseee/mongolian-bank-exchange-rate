@@ -1,4 +1,4 @@
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 __author__ = "Battseren Badral"
 __url__ = "https://btseee.github.io"
 __license__ = "MIT"

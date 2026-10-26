@@ -2,6 +2,39 @@
 
 # Өөрчлөлтийн Түүх
 
+## [v1.1.1] - 2026-10-26
+
+Dependabot-ийн 6 эмзэг байдлыг зассан, Render-ийг хассан, 15 банкны crawler-ийг бодит өгөгдлөөр шалгаж буруу ханштай банкуудыг зассан хувилбар.
+
+### Нэмсэн
+
+- `ARIGBANK_PROXY_URL` - тохируулбал зөвхөн ArigBank-ийн хүсэлтийг энэ proxy-оор дамжуулна (`www.arigbank.mn` зарим сүлжээнээс хүрэх боломжгүй).
+- `requirements-dev.txt` - black, isort, ruff, pytest зэрэг хөгжүүлэлтийн хамаарал тусдаа файлд орсон тул production image-д ороогүй болсон.
+
+### Өөрчилсөн
+
+- `httpx2` 2.9.1 → 2.16.0, `black` 26.5.1 → 26.10.1 (Dependabot #8-#13).
+- `GET /api/rates/latest` болон жагсаалтууд одоо ханшийн **огноогоор** эрэмбэлэгдэнэ. Өмнө нь backfill хийсний дараа хуучин огноо "хамгийн сүүлийн" болж гардаг байсан.
+- Crawler 0 валют татвал одоо амжилтгүй (`failed` / `failed_banks`) гэж тооцогдож нэг удаа дахин оролдоно. Өмнө нь ямар ч тоололд ороогүй, алгасагддаг байсан.
+- Docker болон compose healthcheck HTTP 4xx/5xx хариуг амжилтгүй гэж үзнэ. `.dockerignore`-д `.venv/`, `.clean/`, `.serena/`, `.ruff_cache/` нэмсэн.
+- TransBank: `/en/exchange` хуудас HTTP 500 буцааж байгаа тул ханшийг нүүр хуудаснаас уншина (`TRANSBANK_URI` default `https://transbank.mn/en`). Хуудас засагдвал `TRANSBANK_URI`-г буцааж `https://transbank.mn/en/exchange` болгож болно.
+
+### Зассан
+
+- TransBank-ийн авах/зарах ханш урвуу байсныг зассан: feed нь үйлчлүүлэгчийн талаас нэрлэдэг тул `SELL_RATE` нь авах, `BUY_RATE` нь зарах ханш. Өмнө хадгалагдсан TransBank мөрүүд урвуу хэвээр байна.
+- NaimanSharga: аппликейшн 2026-09-27-оос `currency_rates_new/<огноо>/companies/<companyId>` бүтэц рүү шилжсэн тул crawler шинэ collection-оос уншина (`NSHARGA_COMPANY_ID`).
+- `"0.00"`, `"00.00"` мэт тэг утгыг ханш байхгүй гэж үзнэ (SendMN, BogdBank, CKBank-д `0.0` хадгалагдаж байсан).
+- ASCII бус `X-Admin-Key` header илгээвэл 500 биш 401 буцаана.
+
+### Хассан
+
+- Render: `render.yaml`, `.github/workflows/scheduled-crawl.yml`, `SELF_PING_URL` / `SELF_PING_INTERVAL_SECONDS` тохиргоо болон self-ping keepalive, README-ийн Render хэсэг. Admin endpoint-ууд хэвээр байна.
+- Ашиглагдаагүй `httpx` runtime хамаарал, `app/__version__.py`-ийн ашиглагдаагүй `__title__`, `__description__`, `__author_email__`.
+
+### Мэдэгдэж буй асуудал
+
+- ArigBank (`www.arigbank.mn`) зарим сүлжээнээс (жишээ нь Европоос) хүрэх боломжгүй. Тэр тохиолдолд `ARIGBANK_PROXY_URL` ашиглана.
+
 ## [v1.1.0] - 2026-07-30
 
 Heroku-г бүрмөсөн хасаж, Render.com-ийн free Docker web service рүү шилжсэн том refactor. **API restructure нь breaking change** - өмнөх unprefixed зам (`/rates`, `/health`) ашиглаж байсан клиентүүд `/api/` prefix рүү шилжих шаардлагатай.
