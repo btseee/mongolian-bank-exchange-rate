@@ -679,8 +679,9 @@ class TestNaimanSharga:
         today = datetime.date.today().isoformat()
         mock_config.NSHARGA_FIRESTORE_BASE_URL = (
             "https://firestore.googleapis.com/v1/projects/app/databases/"
-            "(default)/documents/currency_rates?key=abc123"
+            "(default)/documents/currency_rates_new?key=abc123"
         )
+        mock_config.NSHARGA_COMPANY_ID = "company-1"
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {
@@ -705,7 +706,8 @@ class TestNaimanSharga:
 
         expected_url = (
             "https://firestore.googleapis.com/v1/projects/app/databases/"
-            f"(default)/documents/currency_rates/{today}?key=abc123"
+            f"(default)/documents/currency_rates_new/{today}"
+            "/companies/company-1?key=abc123"
         )
         assert mock_get.call_args.args[0] == expected_url
         assert rates["usd"].cash.buy == 3582.0
@@ -808,10 +810,14 @@ class TestTransBank:
 
         rates = crawler._crawl_page(self._page_with_next_data())
 
-        assert rates["usd"].cash.buy == 3620.0
-        assert rates["usd"].cash.sell == 3590.0
-        assert rates["usd"].noncash.buy == 3599.0
-        assert rates["eur"].noncash.sell == 3929.0
+        # The feed names rates from the customer's side: SELL_RATE is what
+        # the bank pays (our "buy"), BUY_RATE what it charges (our "sell").
+        assert rates["usd"].cash.buy == 3590.0
+        assert rates["usd"].cash.sell == 3620.0
+        assert rates["usd"].noncash.buy == 3590.0
+        assert rates["usd"].noncash.sell == 3599.0
+        assert rates["eur"].noncash.buy == 3929.0
+        assert rates["eur"].noncash.sell == 4125.0
 
     def test_crawl_page_does_not_require_a_table(self):
         """The homepage carries the rates in __NEXT_DATA__ but has no
