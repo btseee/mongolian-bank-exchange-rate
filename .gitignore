@@ -219,3 +219,6 @@ __marimo__/
 
 # Serena
 .serena/
+
+# Clean code
+.clean/
