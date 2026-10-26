@@ -52,3 +52,52 @@ class TestSaveRatesUpsert:
         )
         assert result.bank_name == "KhanBank"
         assert result.date == date(2026, 1, 15)
+
+
+class TestDateOrdering:
+    """Rows are ranked by rate date, not by when they were written - a
+    backfill of an older date must not displace the newest rate."""
+
+    def test_latest_ignores_write_order(self, test_db):
+        repository.save_rates(test_db, _rate("KhanBank", "2026-10-26", 100))
+        repository.save_rates(test_db, _rate("KhanBank", "2026-01-15", 200))
+
+        latest = repository.get_latest_rates(test_db)
+
+        assert [(r.bank_name, r.date) for r in latest] == [
+            ("KhanBank", date(2026, 10, 26))
+        ]
+
+    def test_latest_is_per_bank(self, test_db):
+        repository.save_rates(test_db, _rate("KhanBank", "2026-10-26", 100))
+        repository.save_rates(test_db, _rate("GolomtBank", "2026-10-20", 100))
+        repository.save_rates(test_db, _rate("GolomtBank", "2026-10-10", 100))
+
+        latest = repository.get_latest_rates(test_db)
+
+        assert {(r.bank_name, r.date) for r in latest} == {
+            ("KhanBank", date(2026, 10, 26)),
+            ("GolomtBank", date(2026, 10, 20)),
+        }
+
+    def test_bank_list_is_newest_date_first(self, test_db):
+        repository.save_rates(test_db, _rate("KhanBank", "2026-10-26", 100))
+        repository.save_rates(test_db, _rate("KhanBank", "2026-01-15", 100))
+
+        rows = repository.get_rates_by_bank(test_db, "KhanBank")
+
+        assert [r.date for r in rows] == [
+            date(2026, 10, 26),
+            date(2026, 1, 15),
+        ]
+
+    def test_all_rates_list_is_newest_date_first(self, test_db):
+        repository.save_rates(test_db, _rate("KhanBank", "2026-10-26", 100))
+        repository.save_rates(test_db, _rate("KhanBank", "2026-01-15", 100))
+
+        rows = repository.get_all_rates(test_db)
+
+        assert [r.date for r in rows] == [
+            date(2026, 10, 26),
+            date(2026, 1, 15),
+        ]

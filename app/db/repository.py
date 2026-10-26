@@ -43,7 +43,7 @@ def get_all_rates(
 ) -> List[CurrencyRate]:
     return (
         db.query(CurrencyRate)
-        .order_by(CurrencyRate.timestamp.desc())
+        .order_by(CurrencyRate.date.desc(), CurrencyRate.timestamp.desc())
         .offset(skip)
         .limit(limit)
         .all()
@@ -56,7 +56,7 @@ def get_rates_by_bank(
     return (
         db.query(CurrencyRate)
         .filter(CurrencyRate.bank_name == bank_name)
-        .order_by(CurrencyRate.timestamp.desc())
+        .order_by(CurrencyRate.date.desc(), CurrencyRate.timestamp.desc())
         .offset(skip)
         .limit(limit)
         .all()
@@ -93,7 +93,7 @@ def get_latest_rates(db: Session) -> List[CurrencyRate]:
     subq = (
         db.query(
             CurrencyRate.bank_name,
-            func.max(CurrencyRate.timestamp).label("max_ts"),
+            func.max(CurrencyRate.date).label("max_date"),
         )
         .group_by(CurrencyRate.bank_name)
         .subquery()
@@ -104,7 +104,7 @@ def get_latest_rates(db: Session) -> List[CurrencyRate]:
         .join(
             subq,
             (CurrencyRate.bank_name == subq.c.bank_name)
-            & (CurrencyRate.timestamp == subq.c.max_ts),
+            & (CurrencyRate.date == subq.c.max_date),
         )
         .all()
     )
