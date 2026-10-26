@@ -5,7 +5,8 @@ Guidance for Claude Code (or any agent) working in this repo.
 ## What this is
 
 FastAPI service that crawls exchange rates from 15 Mongolian banks, stores them, and serves
-them over a REST API. Deployed as a Docker web service on Render's free tier.
+them over a REST API. Shipped as a Docker image (`ghcr.io`; `docker-compose.yml` runs the API, a
+cron worker and PostgreSQL for self-hosting).
 
 ## Architecture
 
@@ -27,8 +28,8 @@ them over a REST API. Deployed as a Docker web service on Render's free tier.
   check-then-act — it exists specifically to make concurrent crawls (scheduled + admin-triggered)
   race-safe.
 - `scripts/backfill.py` / `scripts/cron.py` — CLI entry points, also reused directly by
-  `app/services/admin_jobs.py` for the HTTP-triggered equivalents (Render's free tier has no
-  worker/cron process type, only `web`).
+  `app/services/admin_jobs.py` for the HTTP-triggered equivalents (for deployments with no
+  always-on worker/cron process).
 
 ## Local dev
 
@@ -60,9 +61,8 @@ pytest
   similar majors have broken things silently before.
 - Admin endpoints (`/api/admin/*`) require `X-Admin-Key` header, checked against
   `ADMIN_API_KEY` (empty means the feature is off, returns 503 — never "open").
-- `render.yaml` deliberately omits `DATABASE_URL` — Render's free tier has no persistent disk,
-  so the SQLite default is ephemeral there; a real deployment needs an external Postgres
-  connection string set manually in the dashboard.
+- `DATABASE_URL` defaults to a local SQLite file, which is ephemeral inside a container without a
+  volume; a real deployment sets a Postgres connection string (`docker-compose.yml` runs one).
 
 ## Release process
 
@@ -70,9 +70,7 @@ pytest
   `:latest` via the `publish` job in `ci.yml`, where `{version}` is read from
   `app/__version__.py` (not the git ref) — deliberate: the same two tags get overwritten in
   place on every push, so no `edge`/`sha-*` images pile up between releases. A new image tag
-  only appears once `__version__.py` is actually bumped. This is separate from Render, which
-  builds its own image straight from the Dockerfile on every push (`render.yaml`'s
-  `autoDeploy: true`) — Render never pulls from ghcr.io.
+  only appears once `__version__.py` is actually bumped.
 - To cut a versioned release: update `CHANGELOG.md`, bump `app/__version__.py`, then push a
   `vX.Y.Z` tag matching the new version. CI publishes the new `vX.Y.Z` + `latest` images and
   creates a GitHub Release (title is just `${{ github.ref_name }}`, e.g. `v1.1.0` — keep it that

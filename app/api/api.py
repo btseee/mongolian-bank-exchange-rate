@@ -5,12 +5,10 @@ wires the app together. See app.api.dependencies for the shared BankName
 enum, date parsing, and admin-key auth used across routers.
 """
 
-import asyncio
 from collections import OrderedDict, deque
 from contextlib import asynccontextmanager
 from time import monotonic
 
-import httpx
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -19,33 +17,15 @@ from app.__version__ import __author__, __license__, __url__, __version__
 from app.api.routers import admin, rates, system
 from app.config import config
 from app.db.database import init_db
-from app.utils.logger import logger
 
 RATE_LIMIT_EXCLUDED_PATHS = {"/", "/redoc", "/openapi.json", "/api/health"}
 _rate_limit_hits = OrderedDict()
 
 
-async def _self_ping_loop() -> None:
-    """Keep a Render free-tier instance from idling to sleep by hitting its
-    own health check on an interval. No-op unless SELF_PING_URL is set."""
-    async with httpx.AsyncClient(timeout=10) as client:
-        while True:
-            await asyncio.sleep(config.SELF_PING_INTERVAL_SECONDS)
-            try:
-                await client.get(config.SELF_PING_URL)
-            except httpx.HTTPError as exc:
-                logger.warning(f"Self-ping failed: {exc}")
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    task = None
-    if config.SELF_PING_URL:
-        task = asyncio.create_task(_self_ping_loop())
     yield
-    if task is not None:
-        task.cancel()
 
 
 app = FastAPI(

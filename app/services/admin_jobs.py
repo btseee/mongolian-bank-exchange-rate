@@ -1,12 +1,11 @@
 """In-process job lock and state for the HTTP-triggered admin endpoints.
 
-Render's free tier has no background-worker/cron process type, so daily
-crawls and backfills are triggered over HTTP by an external scheduler
-instead of an always-on process. try_start()/finish() bracket every admin
-job so a manually-triggered backfill can never overlap the scheduled daily
-crawl (or another admin call) against the same bank sites and DB rows.
-This lock is correct only as long as Uvicorn runs as a single process
-(no --workers flag) - true for this deployment.
+Daily crawls and backfills can be triggered over HTTP by an external
+scheduler instead of an always-on process. try_start()/finish() bracket
+every admin job so a manually-triggered backfill can never overlap the
+scheduled daily crawl (or another admin call) against the same bank sites
+and DB rows. This lock is correct only as long as Uvicorn runs as a single
+process (no --workers flag) - true for this deployment.
 """
 
 import threading

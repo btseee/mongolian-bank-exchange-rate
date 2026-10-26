@@ -15,7 +15,6 @@ schedule==1.2.2
 
 # HTTP
 requests==2.34.2
-httpx==0.28.1
 
 # Web scraping
 playwright==1.61.0

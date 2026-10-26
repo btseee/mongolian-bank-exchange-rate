@@ -74,14 +74,6 @@ class Config:
     # Logging
     LOG_LEVEL = _env("LOG_LEVEL", "INFO")
 
-    # Self-ping keepalive (empty means disabled). Set to the app's own public
-    # URL (e.g. https://your-app.onrender.com) to stop Render's free tier
-    # from sleeping the instance after ~15 minutes of no inbound traffic.
-    SELF_PING_URL = _env("SELF_PING_URL")
-    SELF_PING_INTERVAL_SECONDS = _env_positive_int(
-        "SELF_PING_INTERVAL_SECONDS", 30
-    )
-
     # Public API safeguards
     API_MAX_LIMIT = _env_positive_int("API_MAX_LIMIT", 100)
     CORS_ORIGINS = _env_list("CORS_ORIGINS", "*")

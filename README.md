@@ -37,7 +37,6 @@ docker compose up --build
 | `app/services/` | Crawler-уудыг зэрэгцээ ажиллуулах, admin job lock/төлөв |
 | `app/db/`, `app/models/` | SQLAlchemy session, repository upsert, DB/API model-ууд |
 | `scripts/cron.py`, `scripts/backfill.py` | Always-on scheduler worker, огноо нөхөж татах script |
-| `render.yaml` | Render.com Docker web service Blueprint |
 
 ## API Endpoint-ууд
 
@@ -91,17 +90,7 @@ python -m scripts.cron                    # CRON_SCHEDULE (default 09:00) цаг
 python -m scripts.backfill 2026-01-01 2026-01-31
 ```
 
-Render зэрэг always-on worker дэмждэггүй free-tier орчинд эдгээрийг дээрх admin endpoint-ээр HTTP-аар дуудна. Аль ч аргаар ч өдөр бүрийн хооронд `BACKFILL_DELAY_SECONDS` (default 2 сек) азнаж банкны сайтуудыг rapid биш дуудна.
-
-## Render Дээр Deploy Хийх
-
-Free Docker web service байдлаар `render.yaml`-аар deploy хийхэд бэлэн.
-
-1. GitHub repo-г Render dashboard дээр холбож "New Blueprint" → `render.yaml`.
-2. Dashboard дээр гараар тохируулах: `ADMIN_API_KEY` (`openssl rand -hex 32`), `ARIGBANK_BEARER_TOKEN` (заавал биш).
-3. **Чухал**: Free web service-д persistent disk байхгүй тул default SQLite нь restart болгонд хоослогдоно. Байнгын хадгалалт хэрэгтэй бол Neon/Supabase Postgres үүсгэж, `DATABASE_URL`-г Render dashboard дээр connection string болгож тохируулна (`render.yaml`-д зориудаар тодорхойлогдоогүй).
-4. Sleep-ээс сэргийлэхийн тулд `SELF_PING_URL`-г өөрийн Render URL + `/api/health` болгож тохируулж болно (жишээ нь `https://mongolian-bank-exchange-rate-hm3t.onrender.com/api/health`) - энэ нь Render-ийн 750 цагийн сарын instance-hour квотыг бүрэн ашиглана гэдгийг анхаараарай.
-5. GitHub Actions daily crawl-ыг ажиллуулахын тулд repo Settings → Secrets/Variables → Actions дээр secret `ADMIN_API_KEY` болон variable `RENDER_APP_URL` тохируулна (`.github/workflows/scheduled-crawl.yml` үзнэ үү).
+Always-on worker байхгүй орчинд эдгээрийг дээрх admin endpoint-ээр HTTP-аар дуудаж болно. Аль ч аргаар ч өдөр бүрийн хооронд `BACKFILL_DELAY_SECONDS` (default 2 сек) азнаж банкны сайтуудыг rapid биш дуудна.
 
 ## Тохиргоо
 
@@ -109,14 +98,13 @@ Free Docker web service байдлаар `render.yaml`-аар deploy хийхэ�
 
 | Хувьсагч | Default | Тайлбар |
 | --- | --- | --- |
-| `DATABASE_URL` | SQLite | Render дээр гараар Postgres руу солино ("Render Дээр Deploy Хийх" үзнэ үү) |
+| `DATABASE_URL` | SQLite | Байнгын хадгалалт хэрэгтэй бол Postgres connection string болгож солино (Docker Compose-д PostgreSQL орсон) |
 | `ADMIN_API_KEY` | (хоосон) | `/api/admin/*`-г хамгаалах secret. Хоосон бол 503 |
-| `SELF_PING_URL` | (хоосон) | Тохируулбал `SELF_PING_INTERVAL_SECONDS`-ийн зайтай өөрийгөө ping хийж Render-ийг сэрүүн байлгана |
 | `BACKFILL_DELAY_SECONDS` | `2` | Backfill-ийн өдөр бүрийн хоорондох азналт |
 | `LOG_LEVEL` | `INFO` | Python logging түвшин |
 | `SSL_VERIFY` | `true` | Crawler HTTP SSL verification |
-| `MAX_WORKERS` / `PLAYWRIGHT_MAX_WORKERS` | `8` / `3` | Crawler worker тоо (Render дээр `render.yaml`-аар 4/1) |
-| `ENABLE_PARALLEL` | `true` | Crawler-уудыг зэрэгцээ ажиллуулах эсэх (Render дээр `false` - HTTP/Playwright бүлэг зэрэг ажиллах үед 512MB OOM гардаг байсныг арилгасан) |
+| `MAX_WORKERS` / `PLAYWRIGHT_MAX_WORKERS` | `8` / `3` | Crawler worker тоо |
+| `ENABLE_PARALLEL` | `true` | Crawler-уудыг зэрэгцээ ажиллуулах эсэх (санах ой бага орчинд `false` болговол HTTP/Playwright бүлэг зэрэг ажиллаж OOM болохоос сэргийлнэ) |
 | `CORS_ORIGINS`, `RATE_LIMIT_*` | - | Public API хамгаалалт, `app/config.py`-д бүрэн жагсаалт |
 
 Rate limit болон admin job lock нь process-dotor memory ашигладаг тул зөвхөн нэг Uvicorn process-той deploy-д (`--workers` флаггүй) зөв ажиллана - олон replica-той production бол Redis-backed shared limiter нэмнэ.

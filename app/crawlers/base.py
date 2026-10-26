@@ -104,9 +104,9 @@ class PlaywrightCrawler(BaseCrawler):
         self.timeout = config.PLAYWRIGHT_TIMEOUT
 
     # Bank pages only need to render tables/JSON, so blocking images/fonts/
-    # media cuts Chromium's memory footprint substantially - load-bearing on
-    # Render's free 512MB tier, where this runs alongside the HTTP crawler
-    # pool at the same time (see ScraperService.run_all).
+    # media cuts Chromium's memory footprint substantially - load-bearing
+    # on small hosts, where this runs alongside the HTTP crawler pool at
+    # the same time (see ScraperService.run_all).
     _BLOCKED_RESOURCE_TYPES = frozenset({"image", "media", "font"})
 
     def crawl(self) -> Dict[str, CurrencyDetail]:

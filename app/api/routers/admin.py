@@ -1,6 +1,6 @@
-"""Admin endpoints: on-demand crawl/backfill for Render's HTTP-only free
-tier, where no always-on worker process is available to run a scheduler.
-All routes require the X-Admin-Key header (see app.api.dependencies)."""
+"""Admin endpoints: on-demand crawl/backfill over HTTP, for deployments
+with no always-on worker process to run a scheduler. All routes require
+the X-Admin-Key header (see app.api.dependencies)."""
 
 from typing import Optional
 
